@@ -359,6 +359,9 @@ def retrieve_info(package_list: list, package_and_version: Dict[str: List[int, s
         playstore_url_comp_int = playstore_url + package + "&hl=en-US"
         playstore_url_comp = playstore_url + package + "&hl=" + lang
 
+        resp = ""
+        resp_int = ""
+
         try:
             resp = urllib.request.urlopen(playstore_url_comp).read().decode()
         except HTTPError as e:
@@ -366,12 +369,15 @@ def retrieve_info(package_list: list, package_and_version: Dict[str: List[int, s
                 print("%s was not found on the Play Store.\n" % package)
             continue
 
-        try:
-            resp_int = urllib.request.urlopen(playstore_url_comp_int).read().decode()
-        except HTTPError as e:
-            if e.code == 404:
-                print("%s was not found on the Play Store.\n" % package)
-            continue
+        if playstore_url_comp == playstore_url_comp_int:
+            rep_int = resp
+        else:
+            try:
+                resp_int = urllib.request.urlopen(playstore_url_comp_int).read().decode()
+            except HTTPError as e:
+                if e.code == 404:
+                    print("%s was not found on the Play Store.\n" % package)
+                continue
 
         if ">We're sorry, the requested URL was not found on this server.</div>" in resp_int:
             print("%s was not found on the Play Store.\n" % package)
