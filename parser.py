@@ -275,12 +275,86 @@ def map_apk_to_packagename(repo_dir: str) -> Dict:
     return mapped_apk_files
 
 
-def retrieve_info(package_list: list, package_and_version: dict, lang: str, metadata_dir: str, repo_dir: str,
+def is_metadata_complete(package_content: Dict) -> bool:
+    if (package_content.get("AuthorName", "") != "" and package_content.get("WebSite", "") != ""
+            and package_content.get("Categories", "") != "" and package_content.get("Categories", "") != ["fdroid_repo"]
+            and package_content.get("Name", "") != "" and package_content.get("Summary", "") != ""
+            and package_content.get("Description", "") != "" and package_content.get("AuthorEmail", "") != ""
+            and package_content.get("AntiFeatures", "") != "" and package_content.get("CurrentVersionCode", "") != ""
+            and package_content.get("CurrentVersion", "") != ""):
+        return True
+    else:
+        return False
+
+
+def is_icon_complete(package: str, version_code: int, repo_dir: str) -> bool:
+    filename = package + "." + str(version_code) + ".png"
+
+    icon_relations = {"icons"    : False,
+                      "icons-120": False,
+                      "icons-160": False,
+                      "icons-240": False,
+                      "icons-320": False,
+                      "icons-480": False,
+                      "icons-640": False}
+
+    for dirname in icon_relations.keys():
+        icon_path = os.path.join(repo_dir, dirname, filename)
+        if os.path.exists(icon_path):
+            icon_relations[dirname] = True
+
+    if any(icon_relations.values()):
+        return True
+    else:
+        return False
+
+
+def screenshot_exist(package: str, repo_dir: str) -> bool:
+    screenshots_path = os.path.join(repo_dir, package, "en-US", "phoneScreenshots")
+
+    if not os.path.exists(screenshots_path):
+        return False
+    elif len(os.listdir(screenshots_path)) > 0:
+        return True
+    else:
+        return False
+
+
+def retrieve_info(package_list: list, package_and_version: Dict[str: List[int, str]], lang: str, metadata_dir: str,
+                  repo_dir: str,
                   force: bool, force_version: bool, dl_screenshots: bool):
     playstore_url = "https://play.google.com/store/apps/details?id="
 
+    proc = False
+
     for package in package_list:
         print("Processing " + package + "...\n")
+
+        if os.path.exists(os.path.join(metadata_dir, package + ".yml")):
+            try:
+                stream = open(os.path.join(metadata_dir, package + ".yml"), "r", encoding="utf_8")
+                package_content = yaml.load(stream, Loader=Loader)  # type:Dict
+                stream.close()
+            except PermissionError:
+                print("WARNING: Couldn't read metadata file. Permission denied, skipping package...\n")
+                continue
+        else:
+            package_content = {}
+
+        if not force and not force_version:  # then check for available data
+            if is_metadata_complete(package_content) and is_icon_complete(package, package_and_version[package][0],
+                                                                          repo_dir):
+                if dl_screenshots:
+                    if screenshot_exist(package, repo_dir):
+                        print("Skipping processing for the package as all the metadata is complete in the YML file,"
+                              " all the icons are available and screenshots exist.\n")
+                        continue
+                else:
+                    print("Skipping processing for the package as all the metadata is complete in the YML file"
+                          " and all the icons are available.\n")
+                    continue
+
+        proc = True
 
         playstore_url_comp_int = playstore_url + package + "&hl=en-US"
         playstore_url_comp = playstore_url + package + "&hl=" + lang
@@ -302,17 +376,6 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
         if ">We're sorry, the requested URL was not found on this server.</div>" in resp_int:
             print("%s was not found on the Play Store.\n" % package)
             continue
-
-        if os.path.exists(os.path.join(metadata_dir, package + ".yml")):
-            try:
-                stream = open(os.path.join(metadata_dir, package + ".yml"), "r", encoding="utf_8")
-                package_content = yaml.load(stream, Loader=Loader)  # type:Dict
-                stream.close()
-            except PermissionError:
-                print("WARNING: Couldn't read metadata file, permission denied.\n")
-                continue
-        else:
-            package_content = {}
 
         try:
             if package_content.get("AuthorName", "") == "" or force:
@@ -396,7 +459,7 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
                 package_content["Description"] = html.unescape(
                         re.search(r"<div\sclass=\"[^\"]+\"\sdata-g-id=\"description\">(.+?)<\/div>", resp).group(
                                 1)).replace(
-                        "<br>", "\n").strip()  # TODO: Test without replacing <br> as it's supported in F-Droid.
+                        "<br>", "\n").strip()
             except (IndexError, AttributeError):
                 print("WARNING: Couldn't get the description.\n")
 
@@ -444,16 +507,22 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
         get_icon(resp_int, package, package_and_version[package][0], repo_dir, force)
 
         if dl_screenshots:
-            get_screenshots(resp, repo_dir, force, lang, package)
+            get_screenshots(resp, repo_dir, force, package)
 
         print("Finished processing %s.\n" % package)
 
-    print("\nEverything done! Don't forget to run:\nfdroid rewritemeta\nfdroid update")
+    if proc:
+        print("\nEverything done! Don't forget to run:\nfdroid rewritemeta\nfdroid update")
+    else:
+        print("\nNothing was processed, no files changed.")
 
 
-def get_screenshots(resp: str, repo_dir: str, force: bool, lang: str, package: str):
+def get_screenshots(resp: str, repo_dir: str, force: bool, package: str):
     print("Downloading screenshots for %s\n" % package)
-    screenshots_path = os.path.join(repo_dir, package, lang, "phoneScreenshots")
+
+    # Locale directory must be en-US and not the real locale because that's what F-Droid
+    # defaults to and this script does not do multi-lang download.
+    screenshots_path = os.path.join(repo_dir, package, "en-US", "phoneScreenshots")
 
     try:
         os.makedirs(screenshots_path)
