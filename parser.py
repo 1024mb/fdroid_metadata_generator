@@ -203,15 +203,15 @@ def main():
 
 def convert_apks(key_file: str, cert_file: str, password: List[str] | None, repo_dir: str,
                  build_tools_path: List[str] | None, apk_editor_path: str):
-    print("Starting APKS conversion...")
+    print("Starting APKS conversion...\n")
 
     if platform.system() == "Windows":
         try:
             from win32_setctime import setctime
         except ImportError:
             setctime = None
-            print(
-                    "win32_setctime module is not installed, creation times wont be restored for the converted APK files.")
+            print("win32_setctime module is not installed,"
+                  " creation times wont be restored for the converted APK files.\n")
 
     if build_tools_path is not None:
         apksigner_path = "\"" + os.path.join(build_tools_path[0], "apksigner") + "\""
@@ -219,8 +219,8 @@ def convert_apks(key_file: str, cert_file: str, password: List[str] | None, repo
         apksigner_path = "\"" + shutil.which("apksigner") + "\""
 
     if password is not None:
-        sign_command = apksigner_path + " sign --key \"" + key_file + "\" --cert \"" + cert_file + "\" --key-pass pass:" + \
-                       password[0] + " --in \"%s\" --out \"%s\""
+        sign_command = (apksigner_path + " sign --key \"" + key_file + "\" --cert \"" + cert_file +
+                        "\" --key-pass pass:" + password[0] + " --in \"%s\" --out \"%s\"")
     else:
         sign_command = (apksigner_path + " sign --key \"" + key_file + "\" --cert \"" + cert_file +
                         "\" --key-pass pass: --in \"%s\" --out \"%s\"")
@@ -249,19 +249,19 @@ def convert_apks(key_file: str, cert_file: str, password: List[str] | None, repo
                     os.remove(apk_path_unsigned)
                     proc = True
                 except subprocess.CalledProcessError as e:
-                    print("There was an error signing " + os.path.splitext(file)[0] + ".apk\nError: %s" % e)
+                    print("There was an error signing " + os.path.splitext(file)[0] + ".apk\nError: %s\n" % e)
                     continue
                 except PermissionError:
-                    print("Error deleting file " + os.path.join(repo_dir, file) + ". Permission denied")
+                    print("Error deleting file " + os.path.join(repo_dir, file) + ". Permission denied\n")
                     continue
             except subprocess.CalledProcessError as e:
-                print("There was an error converting " + file + " to .apk\nError: %s" % e)
+                print("There was an error converting " + file + " to .apk\nError: %s\n" % e)
                 continue
 
     if proc:
-        print("Finished converting all APKS files.")
+        print("\nFinished converting all APKS files.\n")
     else:
-        print("No APKS files were converted.")
+        print("No APKS files were converted.\n")
 
 
 def map_apk_to_packagename(repo_dir: str) -> Dict:
@@ -280,7 +280,7 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
     playstore_url = "https://play.google.com/store/apps/details?id="
 
     for package in package_list:
-        print("Processing " + package + "...")
+        print("Processing " + package + "...\n")
 
         playstore_url_comp_int = playstore_url + package + "&hl=en-US"
         playstore_url_comp = playstore_url + package + "&hl=" + lang
@@ -289,18 +289,18 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
             resp = urllib.request.urlopen(playstore_url_comp).read().decode()
         except HTTPError as e:
             if e.code == 404:
-                print("%s was not found on the Play Store." % package)
+                print("%s was not found on the Play Store.\n" % package)
             continue
 
         try:
             resp_int = urllib.request.urlopen(playstore_url_comp_int).read().decode()
         except HTTPError as e:
             if e.code == 404:
-                print("%s was not found on the Play Store." % package)
+                print("%s was not found on the Play Store.\n" % package)
             continue
 
         if ">We're sorry, the requested URL was not found on this server.</div>" in resp_int:
-            print("%s was not found on the Play Store." % package)
+            print("%s was not found on the Play Store.\n" % package)
             continue
 
         if os.path.exists(os.path.join(metadata_dir, package + ".yml")):
@@ -309,7 +309,7 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
                 package_content = yaml.load(stream, Loader=Loader)  # type:Dict
                 stream.close()
             except PermissionError:
-                print("Couldn't read metadata file, permission denied.")
+                print("WARNING: Couldn't read metadata file, permission denied.\n")
                 continue
         else:
             package_content = {}
@@ -321,14 +321,14 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
                             re.search(r"div\sclass=\"Vbfug\sauoIOc\"><a\shref[^>]+><span>(.+?)<\/span>", resp).group(
                                     1)).strip()
         except (IndexError, AttributeError):
-            print("WARNING: Couldn't get the Author name.")
+            print("WARNING: Couldn't get the Author name.\n")
 
         website = ""
         try:
             website = \
                 re.search(r"<meta\sname=\"appstore:developer_url\"\scontent=\"([^\"]+)\"><meta", resp).group(1).strip()
         except (IndexError, AttributeError):
-            print("WARNING: Couldn't get the website.")
+            print("WARNING: Couldn't get the app website.\n")
 
         if website != "" and (package_content.get("WebSite", "") == "" or force):
             package_content["WebSite"] = website.replace("http://", "https://")
@@ -358,21 +358,22 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
                    r"^<]+)<\/span><a\sclass=\"WpHeLc\sVfPpkd-mRLv6\sVfPpkd-RLmnJb\"\shref=\"\/store\/("
                    r"?:apps\/category|search\?)")
 
-        if package_content.get("Categories", "") == "" or force:
+        if (package_content.get("Categories", "") == "" or
+                package_content.get("Categories", "") == ["fdroid_repo"] or force):
             ret_grp = re.search(pattern, resp_int)
 
             if ret_grp is not None:
                 cat_list = extract_categories(ret_grp, resp_int)
                 package_content["Categories"] = cat_list
             else:
-                print("WARNING: Couldn't get the categories.")
+                print("WARNING: Couldn't get the categories.\n")
 
         if package_content.get("Name", "") == "" or force:
             try:
                 package_content["Name"] = html.unescape(
                         re.search(r"itemprop=\"name\">(.+?)<\/h1>", resp).group(1)).strip()
             except (IndexError, AttributeError):
-                print("WARNING: Couldn't get the application name.")
+                print("WARNING: Couldn't get the application name.\n")
 
         if package_content.get("Summary", "") == "" or force:
             try:
@@ -388,7 +389,7 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
 
                 package_content["Summary"] = summary
             except (IndexError, AttributeError):
-                print("WARNING: Couldn't get the summary.")
+                print("WARNING: Couldn't get the summary.\n")
 
         if package_content.get("Description", "") == "" or force:
             try:
@@ -397,7 +398,7 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
                                 1)).replace(
                         "<br>", "\n").strip()  # TODO: Test without replacing <br> as it's supported in F-Droid.
             except (IndexError, AttributeError):
-                print("WARNING: Couldn't get the description.")
+                print("WARNING: Couldn't get the description.\n")
 
         if package_content.get("AuthorEmail", "") == "" or force:
             try:
@@ -411,10 +412,9 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
                         package_content["AuthorEmail"] = item
                         break
             except (IndexError, AttributeError):
-                print("WARNING: Couldn't get the Author email.")
+                print("WARNING: Couldn't get the Author email.\n")
 
-        if (package_content.get("AntiFeatures", "") == "" or
-                package_content.get("AntiFeatures", "") == ["fdroid_repo"] or force):
+        if package_content.get("AntiFeatures", "") == "" or force:
             if ("github.com/" or "gitlab.com/") in website:
                 anti_features = ["NonFreeAssets"]
             else:
@@ -439,20 +439,20 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
             yaml.dump(package_content, stream, Dumper=Dumper, allow_unicode=True, encoding="utf_8")
             stream.close()
         except PermissionError:
-            print("Couldn't write YML file, permission denied")
+            print("Couldn't write YML file. Permission denied.\n")
 
         get_icon(resp_int, package, package_and_version[package][0], repo_dir, force)
 
         if dl_screenshots:
             get_screenshots(resp, repo_dir, force, lang, package)
 
-        print("Finished processing " + package)
+        print("Finished processing %s.\n" % package)
 
     print("\nEverything done! Don't forget to run:\nfdroid rewritemeta\nfdroid update")
 
 
 def get_screenshots(resp: str, repo_dir: str, force: bool, lang: str, package: str):
-    print("Downloading screenshots for " + package)
+    print("Downloading screenshots for %s\n" % package)
     screenshots_path = os.path.join(repo_dir, package, lang, "phoneScreenshots")
 
     try:
@@ -460,12 +460,12 @@ def get_screenshots(resp: str, repo_dir: str, force: bool, lang: str, package: s
     except FileExistsError:
         pass
     except PermissionError:
-        print("Error creating the directory where the screenshots should be saved. Permission denied")
+        print("Error creating the directory where the screenshots should be saved. Permission denied.\n")
         return  # TODO: Should I be making these kind of errors fatal and
         # terminate the application instead of breaking the functions?
 
     if not force and len(os.listdir(screenshots_path)) > 0:
-        print("Screenshots for %s already exists, skipping..." % package)
+        print("Screenshots for %s already exists, skipping...\n" % package)
         return
 
     img_url_list = re.findall(r"<div\sjscontroller=\"RQJprf\"\sclass=\"Atcj9b\"><img\ssrc=\"([^\"]+)=w[0-9]+-h[0-9]+\"",
@@ -484,10 +484,10 @@ def get_screenshots(resp: str, repo_dir: str, force: bool, lang: str, package: s
         except HTTPError:
             pass
         except PermissionError:
-            print("Error downloading screenshots. Permission denied.")
+            print("Error downloading screenshots. Permission denied.\n")
             return
 
-    print("Finished downloading screenshots for " + package)
+    print("Finished downloading screenshots for %s.\n" % package)
 
 
 def extract_icon_url(resp_int: str) -> str | None:
@@ -518,7 +518,7 @@ def get_icon(resp_int: str, package: str, version_code: int, repo_dir: str, forc
     if icon_base_url is None:
         icon_base_url_alt = extract_icon_url_alt(resp_int)
         if icon_base_url_alt is None:
-            print("Couldn't extract icon URL for " + package)
+            print("Couldn't extract icon URL for %s.\n" % package)
             return
 
     filename = package + "." + str(version_code) + ".png"
@@ -537,7 +537,8 @@ def get_icon(resp_int: str, package: str, version_code: int, repo_dir: str, forc
         except FileExistsError:
             pass
         except PermissionError:
-            print("Can't create directory for \"" + dirname + "\", permission denied")
+            print("Can't create directory for \"" + dirname +
+                  "\". Permission denied, skipping icon download for this package.\n")
             return
 
     if icon_base_url is not None:
