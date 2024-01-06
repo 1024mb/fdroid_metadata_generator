@@ -3,8 +3,11 @@ from __future__ import annotations
 import argparse
 import html
 import os
+import platform
 import re
 import shutil
+import subprocess
+import sys
 import urllib.request
 from typing import Dict, List
 from urllib.error import HTTPError
@@ -30,6 +33,27 @@ def main():
     parser.add_argument("-fv", "--force-version",
                         help="Force updating version name and code even if they are already specified in the YML file.",
                         action="store_true")
+    parser.add_argument("-cs", "--convert-apks",
+                        help="Convert APKS files to APK and sign them.",
+                        action="store_true")
+    parser.add_argument("-k", "--key-file",
+                        help="Key file used to sign the APK, required if --convert-apks is used.",
+                        nargs=1)
+    parser.add_argument("-c", "--cert-file",
+                        help="Cert file used to sign the APK, required if --convert-apks is used.",
+                        nargs=1)
+    parser.add_argument("-cp", "--certificate-password",
+                        help="Password to sign the APK.",
+                        nargs=1)
+    parser.add_argument("-bt", "--build-tools-path",
+                        help="Path to Android SDK buildtools binaries.",
+                        nargs=1)
+    parser.add_argument("-ae", "--apk-editor-path",
+                        help="Path to the ApkEditor.jar file.",
+                        nargs=1)
+    parser.add_argument("-ds", "--download-screenshots",
+                        help="Download screenshots which will be stored in the repo directory.",
+                        action="store_true")
 
     args = parser.parse_args()
 
@@ -51,12 +75,18 @@ def main():
 
     if args.metadata_dir is not None:
         metadata_dir = os.path.abspath(args.metadata_dir)
+        if os.path.split(metadata_dir)[1] != "metadata":
+            print("Metadata directory path doesn't look like a F-Droid repository metadata directory, aborting...")
+            exit(1)
 
     if args.repo_dir is not None:
         repo_dir = os.path.abspath(args.repo_dir)
+        if os.path.split(repo_dir)[1] != "repo":
+            print("Repo directory path doesn't look like a F-Droid repository directory, aborting...")
+            exit(1)
 
     if shutil.which("aapt") is None:
-        print("Please install aapt2 before running this script.")
+        print("Please install aapt before running this script.")
 
     if shutil.which("aapt2") is None:
         print("Please install aapt2 before running this script.")
@@ -73,6 +103,41 @@ def main():
         print("Invalid language")
         exit(1)
 
+    if args.convert_apks:
+        if args.build_tools_path is None and shutil.which("apksigner") is None:
+            print("Please install the build-tools package of the Android SDK if you want to convert APKS files.")
+            exit(1)
+
+        if args.build_tools_path is not None:
+            if (not os.path.exists(os.path.abspath(args.build_tools_path[0])) or
+                    not os.path.isdir(os.path.abspath(args.build_tools_path[0]))):
+                print("Invalid build-tools path.")
+                exit(1)
+
+        if shutil.which("java") is None:
+            print("Please install java if you want to convert APKS files.")
+            exit(1)
+
+        if args.apk_editor_path is None:
+            print("Please specify the full path of the ApkEditor.jar file.")
+            exit(1)
+        elif (not os.path.exists(os.path.abspath(args.apk_editor_path[0])) or
+              not os.path.isfile(os.path.abspath(args.apk_editor_path[0]))):
+            print("Invalid ApkEditor.jar path.")
+            exit(1)
+
+    if args.key_file is not None:
+        if not os.path.exists(os.path.abspath(args.key_file[0])) or not os.path.isfile(
+                os.path.abspath(args.key_file[0])):
+            print("Invalid key file path.")
+            exit(1)
+
+    if args.cert_file is not None:
+        if not os.path.exists(os.path.abspath(args.cert_file[0])) or not os.path.isfile(
+                os.path.abspath(args.cert_file[0])):
+            print("Invalid cert file path.")
+            exit(1)
+
     package_list = []
     package_and_version = {}  # type: Dict[str: List[int, str]]
 
@@ -83,6 +148,11 @@ def main():
 
         repo_dir = os.path.join(os.path.split(metadata_dir)[0], "repo")
 
+        if args.convert_apks:
+            convert_apks(key_file=args.key_file[0], cert_file=args.cert_file[0], password=args.certificate_password,
+                         repo_dir=repo_dir, build_tools_path=args.build_tools_path,
+                         apk_editor_path=args.apk_editor_path[0])
+
         mapped_apk_files = map_apk_to_packagename(repo_dir)
 
         for item in os.listdir(metadata_dir):
@@ -92,7 +162,7 @@ def main():
             except KeyError:
                 apk_file_path = None
 
-            if os.path.splitext(item)[1] != ".yml":
+            if os.path.splitext(item)[1].lower() != ".yml":
                 print("Skipping " + item)
             else:
                 package_list.append(base_name)
@@ -102,26 +172,96 @@ def main():
                 else:
                     package_and_version[base_name] = 0, "0"
 
-        retrieve_info(package_list, package_and_version, lang, metadata_dir, repo_dir, args.force, args.force_version)
+        retrieve_info(package_list, package_and_version, lang, metadata_dir, repo_dir, args.force, args.force_version,
+                      args.download_screenshots)
     elif "repo_dir" in locals():
         if not os.path.isdir(repo_dir):
             print("Invalid repo directory, supplied path is not a directory")
             exit(1)
+
+        if args.convert_apks:
+            convert_apks(key_file=args.key_file[0], cert_file=args.cert_file[0], password=args.certificate_password,
+                         repo_dir=repo_dir, build_tools_path=args.build_tools_path,
+                         apk_editor_path=args.apk_editor_path[0])
 
         metadata_dir = os.path.join(os.path.split(repo_dir)[0], "metadata")
 
         for apk_file in os.listdir(repo_dir):
             apk_file_path = os.path.join(repo_dir, apk_file)
 
-            if os.path.isfile(os.path.join(repo_dir, apk_file)) and os.path.splitext(apk_file)[1] == ".apk":
+            if os.path.isfile(os.path.join(repo_dir, apk_file)) and os.path.splitext(apk_file)[1].lower() == ".apk":
                 package_list.append(ApkFile(apk_file_path).package_name)
                 package_and_version[ApkFile(apk_file_path).package_name] = ApkFile(apk_file_path).version_code, ApkFile(
                         apk_file_path).version_name
 
-        retrieve_info(package_list, package_and_version, lang, metadata_dir, repo_dir, args.force, args.force_version)
+        retrieve_info(package_list, package_and_version, lang, metadata_dir, repo_dir, args.force, args.force_version,
+                      args.download_screenshots)
     else:
         print("We shouldn't have got here.")
         exit(1)
+
+
+def convert_apks(key_file: str, cert_file: str, password: List[str] | None, repo_dir: str,
+                 build_tools_path: List[str] | None, apk_editor_path: str):
+    print("Starting APKS conversion...")
+
+    if platform.system() == "Windows":
+        try:
+            from win32_setctime import setctime
+        except ImportError:
+            setctime = None
+            print(
+                    "win32_setctime module is not installed, creation times wont be restored for the converted APK files.")
+
+    if build_tools_path is not None:
+        apksigner_path = "\"" + os.path.join(build_tools_path[0], "apksigner") + "\""
+    else:
+        apksigner_path = "\"" + shutil.which("apksigner") + "\""
+
+    if password is not None:
+        sign_command = apksigner_path + " sign --key \"" + key_file + "\" --cert \"" + cert_file + "\" --key-pass pass:" + \
+                       password[0] + " --in \"%s\" --out \"%s\""
+    else:
+        sign_command = (apksigner_path + " sign --key \"" + key_file + "\" --cert \"" + cert_file +
+                        "\" --key-pass pass: --in \"%s\" --out \"%s\"")
+
+    convert_command = "java -jar \"" + apk_editor_path + "\" m -i \"%s\" -o \"%s\" -f"
+
+    proc = False
+
+    for file in os.listdir(repo_dir):
+        if os.path.splitext(file)[1].lower() == ".apks":
+            try:
+                apks_path = os.path.join(repo_dir, file)
+                apk_path_unsigned = os.path.join(repo_dir, os.path.splitext(file)[0] + "_unsigned.apk")
+                apk_path_signed = os.path.join(repo_dir, os.path.splitext(file)[0] + ".apk")
+
+                old_app_stats = os.lstat(apks_path)
+
+                subprocess.run(convert_command % (apks_path, apk_path_unsigned))
+
+                try:
+                    subprocess.run(sign_command % (apk_path_unsigned, apk_path_signed))
+                    os.utime(apk_path_signed, (old_app_stats.st_atime, old_app_stats.st_mtime))
+                    if platform.system() == "Windows" and "win32_setctime" in sys.modules:
+                        setctime(apk_path_signed, old_app_stats.st_birthtime)
+                    os.remove(apks_path)
+                    os.remove(apk_path_unsigned)
+                    proc = True
+                except subprocess.CalledProcessError as e:
+                    print("There was an error signing " + os.path.splitext(file)[0] + ".apk\nError: %s" % e)
+                    continue
+                except PermissionError:
+                    print("Error deleting file " + os.path.join(repo_dir, file) + ". Permission denied")
+                    continue
+            except subprocess.CalledProcessError as e:
+                print("There was an error converting " + file + " to .apk\nError: %s" % e)
+                continue
+
+    if proc:
+        print("Finished converting all APKS files.")
+    else:
+        print("No APKS files were converted.")
 
 
 def map_apk_to_packagename(repo_dir: str) -> Dict:
@@ -129,14 +269,14 @@ def map_apk_to_packagename(repo_dir: str) -> Dict:
 
     for apk_file in os.listdir(repo_dir):
         apk_file_path = os.path.join(repo_dir, apk_file)
-        if os.path.isfile(apk_file_path) and os.path.splitext(apk_file_path)[1] == ".apk":
+        if os.path.isfile(apk_file_path) and os.path.splitext(apk_file_path)[1].lower() == ".apk":
             mapped_apk_files[ApkFile(apk_file_path).package_name] = apk_file
 
     return mapped_apk_files
 
 
 def retrieve_info(package_list: list, package_and_version: dict, lang: str, metadata_dir: str, repo_dir: str,
-                  force: bool, force_version: bool):
+                  force: bool, force_version: bool, dl_screenshots: bool):
     playstore_url = "https://play.google.com/store/apps/details?id="
 
     for package in package_list:
@@ -191,7 +331,7 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
             print("WARNING: Couldn't get the website.")
 
         if website != "" and (package_content.get("WebSite", "") == "" or force):
-            package_content["WebSite"] = website
+            package_content["WebSite"] = website.replace("http://", "https://")
 
         if "https://github.com/" in website or "http://github.com/" in website:
             repo = re.sub(r"(https?)(://github.com/[^/]+/[^/]+).*", r"https\2", website)
@@ -261,13 +401,20 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
 
         if package_content.get("AuthorEmail", "") == "" or force:
             try:
-                package_content["AuthorEmail"] = html.unescape(
-                        re.search(r"<div\sclass=\"xFVDSb\">.+?<\/div><div\sclass=\"pSEeg\">(.+?)<\/div>", resp).group(
-                                1)).strip()
+                email_grps = re.findall(r"<div\sclass=\"xFVDSb\">.+?<\/div><div\sclass=\"pSEeg\">(.+?)<\/div>",
+                                        resp)
+
+                for item in email_grps:
+                    if "@" not in item:
+                        continue
+                    else:
+                        package_content["AuthorEmail"] = item
+                        break
             except (IndexError, AttributeError):
                 print("WARNING: Couldn't get the Author email.")
 
-        if package_content.get("AntiFeatures", "") == "" or force:
+        if (package_content.get("AntiFeatures", "") == "" or
+                package_content.get("AntiFeatures", "") == ["fdroid_repo"] or force):
             if ("github.com/" or "gitlab.com/") in website:
                 anti_features = ["NonFreeAssets"]
             else:
@@ -296,9 +443,51 @@ def retrieve_info(package_list: list, package_and_version: dict, lang: str, meta
 
         get_icon(resp_int, package, package_and_version[package][0], repo_dir, force)
 
+        if dl_screenshots:
+            get_screenshots(resp, repo_dir, force, lang, package)
+
         print("Finished processing " + package)
 
-    print("Everything done! Don't forget to run fdroid rewritemeta.")
+    print("\nEverything done! Don't forget to run:\nfdroid rewritemeta\nfdroid update")
+
+
+def get_screenshots(resp: str, repo_dir: str, force: bool, lang: str, package: str):
+    print("Downloading screenshots for " + package)
+    screenshots_path = os.path.join(repo_dir, package, lang, "phoneScreenshots")
+
+    try:
+        os.makedirs(screenshots_path)
+    except FileExistsError:
+        pass
+    except PermissionError:
+        print("Error creating the directory where the screenshots should be saved. Permission denied")
+        return  # TODO: Should I be making these kind of errors fatal and
+        # terminate the application instead of breaking the functions?
+
+    if not force and len(os.listdir(screenshots_path)) > 0:
+        print("Screenshots for %s already exists, skipping..." % package)
+        return
+
+    img_url_list = re.findall(r"<div\sjscontroller=\"RQJprf\"\sclass=\"Atcj9b\"><img\ssrc=\"([^\"]+)=w[0-9]+-h[0-9]+\"",
+                              resp)  # type: List[str]
+
+    pad_amount = len(str(len(img_url_list)))
+
+    i = 0
+
+    for img_url in img_url_list:
+        url = img_url + "=w9999"
+        ss_path = os.path.join(screenshots_path, str(i).zfill(pad_amount) + ".png")
+        try:
+            urllib.request.urlretrieve(url, ss_path)
+            i += 1
+        except HTTPError:
+            pass
+        except PermissionError:
+            print("Error downloading screenshots. Permission denied.")
+            return
+
+    print("Finished downloading screenshots for " + package)
 
 
 def extract_icon_url(resp_int: str) -> str | None:

@@ -2,3 +2,5 @@
 PyYAML~=6.0.1
 
 #apkfile~=0.1.7
+
+win32_setctime; platform_system == 'Windows'
