@@ -1,0 +1,7 @@
+{
+  "Replacements": {
+    "com.example.app": "com.example.app.dev",
+    "project.fdroid": "project.gplay",
+    ".f-droid": ""
+  }
+}
