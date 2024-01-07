@@ -35,25 +35,25 @@ def main():
     parser.add_argument("-fv", "--force-version",
                         help="Force updating version name and code even if they are already specified in the YML file.",
                         action="store_true")
-    parser.add_argument("-cs", "--convert-apks",
+    parser.add_argument("-ca", "--convert-apks",
                         help="Convert APKS files to APK and sign them.",
                         action="store_true")
-    parser.add_argument("-k", "--key-file",
+    parser.add_argument("-kf", "--key-file",
                         help="Key file used to sign the APK, required if --convert-apks is used.",
                         nargs=1)
-    parser.add_argument("-c", "--cert-file",
+    parser.add_argument("-cf", "--cert-file",
                         help="Cert file used to sign the APK, required if --convert-apks is used.",
                         nargs=1)
-    parser.add_argument("-cp", "--certificate-password",
+    parser.add_argument("-cpw", "--certificate-password",
                         help="Password to sign the APK.",
                         nargs=1)
-    parser.add_argument("-bt", "--build-tools-path",
+    parser.add_argument("-btp", "--build-tools-path",
                         help="Path to Android SDK buildtools binaries.",
                         nargs=1)
-    parser.add_argument("-ae", "--apk-editor-path",
+    parser.add_argument("-aep", "--apk-editor-path",
                         help="Path to the ApkEditor.jar file.",
                         nargs=1)
-    parser.add_argument("-ds", "--download-screenshots",
+    parser.add_argument("-dls", "--download-screenshots",
                         help="Download screenshots which will be stored in the repo directory.",
                         action="store_true")
     parser.add_argument("-df", "--data-file",
@@ -109,8 +109,21 @@ def main():
         print("Please install aapt2 before running this program.")
         exit(1)
 
-    data_file_stream = open(args.data_file, mode="r", encoding="utf_8")
-    data_file_content = json.load(data_file_stream)  # type: Dict
+    try:
+        data_file_stream = open(args.data_file, mode="r", encoding="utf_8")
+    except FileNotFoundError:
+        print("Data file not found.")
+        exit(1)
+    except PermissionError:
+        print("Couldn't read data file. Permission denied.")
+        exit(1)
+
+    try:
+        data_file_content = json.load(data_file_stream)  # type: Dict
+    except json.decoder.JSONDecodeError:
+        print("Error decoding data file.")
+        exit(1)
+
     data_file_stream.close()
 
     if not check_data_file(data_file_content):
