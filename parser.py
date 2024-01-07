@@ -21,12 +21,6 @@ from yaml import Loader, Dumper
 
 from dep.apkfile_fork import ApkFile
 
-global icon_not_found_packages
-global screenshots_not_found_packages
-
-icon_not_found_packages = []
-screenshots_not_found_packages = []
-
 
 def main():
     parser = argparse.ArgumentParser(description="Parser for PlayStore information to F-Droid YML metadata files.")
@@ -294,10 +288,10 @@ def get_new_packagename(replacement_file: str | None, base_name: str) -> str | N
             replacements = json.load(replace_stream)["Replacements"]  # type: Dict[str: str]
         except PermissionError as e:
             red("ERROR: Couldn't read replacement file. Permission denied.\n%s\n" % e)
-            return None
+            exit(1)
         except json.decoder.JSONDecodeError as e:
             red("ERROR: Couldn't load replacement file. Decoding error.\n%s\n" % e)
-            return None
+            exit(1)
 
         for term in replacements.keys():
             search_term = term
@@ -377,9 +371,8 @@ def convert_apks(key_file: str, cert_file: str, password: List[str] | None, repo
         except FileNotFoundError:
             yellow("WARNING: %s does not exist.\n" % apks_path)
         except PermissionError:
-            yellow(
-                    "WARNING: Couldn't get stats of the APKS file, check permissions."
-                    " Old timestamps wont be restored.\n")
+            yellow("WARNING: Couldn't get stats of the APKS file,"
+                   " check permissions. Old timestamps wont be restored.\n")
 
         try:
             subprocess.run(convert_command % (apks_path, apk_path_unsigned), stdout=subprocess.DEVNULL,
@@ -499,8 +492,8 @@ def screenshot_exist(package: str, repo_dir: str) -> bool:
         return False
 
 
-def get_version(package_content: Dict, force: bool, force_version: bool, package_and_version: Dict,
-                new_package: str) -> None:
+def get_version(package_content: Dict, package_and_version: Dict,
+                new_package: str, force: bool, force_version: bool) -> None:
     if (package_content.get("CurrentVersionCode", "") == "" or package_content.get("CurrentVersionCode", "") == 0
             or package_content.get("CurrentVersionCode", "") == 2147483647
             or package_content.get("CurrentVersionCode") is None or force or force_version):
@@ -532,6 +525,8 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
     summary_not_found_packages = []
     description_not_found_packages = []
     category_not_found_packages = []
+    icon_not_found_packages = []
+    screenshots_not_found_packages = []
 
     authorname_pattern = r"div\sclass=\"Vbfug\sauoIOc\"><a\shref[^>]+><span>(.+?)</span>"
     authoremail_pattern = r"<div\sclass=\"xFVDSb\">.+?</div><div\sclass=\"pSEeg\">(.+?)</div>"
@@ -547,7 +542,8 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
     icon_pattern = r"<div\sclass=\"l8YSdd\"><img\ssrc=\"(.+?=s)[0-9]"
     icon_pattern_alt = r"<div\sclass=\"Mqg6jb\sMhrnjf\"><img\ssrc=\"(.+?=w)"
 
-    gitlab_repo_id_pattern = r"<span\sclass=\"gl-sr-only\"\sdata-testid=\"project-id-content\"\sitemprop=\"identifier\">\n*Project\sID:\s([0-9]+)\n*</span>"
+    gitlab_repo_id_pattern = (r"<span\sclass=\"gl-sr-only\"\sdata-testid=\"project-id-content\"\sitemprop=\"identifier"
+                              r"\">\n*Project\sID:\s([0-9]+)\n*</span>")
 
     for pkg in package_list.keys():
         package = pkg
@@ -575,8 +571,9 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
                 if package_and_version[new_package][0] is None:
                     if dl_screenshots:
                         if screenshot_exist(package, repo_dir):
-                            blue("Skipping processing for the package as all the metadata is complete in the YML file,"
-                                 " and screenshots exist.\n")
+                            blue(
+                                    "Skipping processing for the package as all the metadata is complete in the YML file,"
+                                    " and screenshots exist.\n")
                             continue
                     else:
                         blue("Skipping processing for the package as all the metadata is complete in the YML file.\n")
@@ -584,8 +581,9 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
                 else:
                     if dl_screenshots:
                         if screenshot_exist(package, repo_dir):
-                            blue("Skipping processing for the package as all the metadata is complete in the YML file,"
-                                 " all the icons are available and screenshots exist.\n")
+                            blue(
+                                    "Skipping processing for the package as all the metadata is complete in the YML file,"
+                                    " all the icons are available and screenshots exist.\n")
                             continue
                     else:
                         blue("Skipping processing for the package as all the metadata is complete in the YML file"
@@ -597,139 +595,32 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
         playstore_url_comp_int = playstore_url + new_package + "&hl=en-US"
         playstore_url_comp = playstore_url + new_package + "&hl=" + lang
 
-        resp = ""
-        resp_int = ""
+        resp_list = []
 
         green("Downloading Play Store pages...\n")
 
-        try:
-            resp = urllib.request.urlopen(playstore_url_comp).read().decode()
-        except HTTPError as e:
-            if e.code == 404:
-                yellow("%s was not found on the Play Store.\n" % new_package)
-
-                not_found_packages.append(package)
-
-                get_version(package_content, force, force_version, package_and_version, new_package)
-                write_yml(metadata_dir, package, package_content)
-
-                green("Finished processing %s.\n" % package)
+        if not get_play_store_page(playstore_url_comp, playstore_url_comp_int, package, new_package, resp_list,
+                                   not_found_packages, package_content, force, force_version, package_and_version,
+                                   metadata_dir):
             continue
 
-        if playstore_url_comp == playstore_url_comp_int:
-            rep_int = resp
-        else:
-            try:
-                resp_int = urllib.request.urlopen(playstore_url_comp_int).read().decode()
-            except HTTPError as e:
-                if e.code == 404:
-                    yellow("%s was not found on the Play Store (en-US).\n" % new_package)
-
-                    not_found_packages.append(package)
-
-                    get_version(package_content, force, force_version, package_and_version, new_package)
-                    write_yml(metadata_dir, package, package_content)
-
-                    green("Finished processing %s.\n" % package)
-                continue
-
-        if ">We're sorry, the requested URL was not found on this server.</div>" in resp_int:
-            yellow("%s was not found on the Play Store.\n" % new_package)
-            not_found_packages.append(package)
-
-            get_version(package_content, force, force_version, package_and_version, new_package)
-            write_yml(metadata_dir, package, package_content)
-
-            green("Finished processing %s.\n" % package)
-            continue
+        resp = resp_list[0]
+        resp_int = resp_list[1]
 
         green("Extracting information...\n")
 
-        try:
-            if package_content.get("AuthorName", "") == "" or package_content.get("AuthorName") is None or force:
-                package_content["AuthorName"] = html.unescape(re.search(authorname_pattern, resp).group(1)).strip()
-        except (IndexError, AttributeError):
-            yellow("WARNING: Couldn't get the Author name.\n")
-            authorname_not_found_packages.append(package)
+        get_name(package_content, name_pattern, resp, package, name_not_found_packages, force)
 
-        website = ""
-        try:
-            website = (re.search(website_pattern, resp).group(1).strip())
-        except (IndexError, AttributeError):
-            yellow("WARNING: Couldn't get the app website.\n")
-            website_not_found_packages.append(package)
+        get_author_name(package_content, authorname_pattern, resp, package, authorname_not_found_packages, force)
 
-        if website != "" and (package_content.get("WebSite", "") == "" or package_content.get("WebSite") is None
-                              or force):
-            package_content["WebSite"] = website.replace("http://", "https://")
+        get_author_email(package_content, authoremail_pattern, resp, package, authoremail_not_found_packages, force)
 
-        if "https://github.com/" in website or "http://github.com/" in website:
-            repo = re.sub(r"(https?)(://github.com/[^/]+/[^/]+).*", r"https\2", website)
-            api_repo = re.sub(r"(https?)(://github.com/)([^/]+/[^/]+).*",
-                              r"https://api.github.com/repos/\3", website)
+        website = get_website(package_content, website_pattern, resp, package, website_not_found_packages, force)
 
-            get_license(package_content, force, api_repo, data_file_content)
+        get_repo_info_and_license(package_content, gitlab_repo_id_pattern, website, data_file_content, force)
 
-            if (package_content.get("IssueTracker", "") == "" or package_content.get("IssueTracker") is None
-                    or force):
-                package_content["IssueTracker"] = repo + "/issues"
-
-            if package_content.get("SourceCode", "") == "" or package_content.get("SourceCode") is None or force:
-                package_content["SourceCode"] = repo
-
-            if package_content.get("Changelog", "") == "" or package_content.get("Changelog") is None or force:
-                package_content["Changelog"] = repo + "/releases/latest"
-
-            if package_content.get("Repo", "") == "" or package_content.get("Repo") is None or force:
-                package_content["Repo"] = repo
-
-        elif "https://gitlab.com/" in website or "http://gitlab.com/" in website:
-            repo = re.sub(r"(https?)(://gitlab.com/[^/]+/[^/]+).*", r"https\2", website)
-            git_repo = urllib.request.urlopen(repo).read().decode()
-
-            try:
-                repo_id = re.search(gitlab_repo_id_pattern, git_repo).groups(1)
-                api_repo = "https://gitlab.com/api/v4/projects/" + repo_id[0].strip() + "?license=yes"
-                get_license(package_content, force, api_repo, data_file_content)
-            except (IndexError, AttributeError):
-                pass
-
-            if (package_content.get("IssueTracker", "") == "" or package_content.get("IssueTracker") is None
-                    or force):
-                package_content["IssueTracker"] = repo + "/-/issues"
-
-            if package_content.get("SourceCode", "") == "" or package_content.get("SourceCode") is None or force:
-                package_content["SourceCode"] = repo
-
-            if package_content.get("Changelog", "") == "" or package_content.get("Changelog") is None or force:
-                package_content["Changelog"] = repo + "/-/releases"
-
-            if package_content.get("Repo", "") == "" or package_content.get("Repo") is None or force:
-                package_content["Repo"] = repo
-
-        elif (package_content.get("License", "") == "" or package_content.get("License", "") == "Unknown"
-              or package_content.get("License") is None or force):
-            package_content["License"] = "Copyright"
-
-        if (package_content.get("Categories", "") == "" or
-                package_content.get("Categories", "") == ["fdroid_repo"] or
-                package_content.get("Categories") is None or
-                None in package_content.get("Categories") or force):
-            ret_grp = re.search(category_pattern, resp_int)
-
-            if ret_grp is not None:
-                cat_list = extract_categories(ret_grp, resp_int, data_file_content)
-                package_content["Categories"] = cat_list
-            else:
-                yellow("WARNING: Couldn't get the categories.\n")
-                category_not_found_packages.append(package)
-
-        if package_content.get("Name", "") == "" or package_content.get("Name") is None or force:
-            try:
-                package_content["Name"] = html.unescape(re.search(name_pattern, resp).group(1)).strip()
-            except (IndexError, AttributeError):
-                yellow("WARNING: Couldn't get the application name.\n")
-                name_not_found_packages.append(package)
+        get_categories(package_content, category_pattern, resp_int, package, category_not_found_packages,
+                       data_file_content, force)
 
         if package_content.get("Summary", "") == "" or package_content.get("Summary") is None or force:
             if not get_summary(resp, package_content, summary_pattern):
@@ -737,59 +628,31 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
                     yellow("WARNING: Couldn't get the summary.\n")
                     summary_not_found_packages.append(package)
 
-        if package_content.get("Description", "") == "" or package_content.get("Description") is None or force:
-            try:
-                package_content["Description"] = html.unescape(
-                        re.search(description_pattern, resp).group(1)).replace("<br>", "\n").strip()
-            except (IndexError, AttributeError):
-                yellow("WARNING: Couldn't get the description.\n")
-                description_not_found_packages.append(package)
+        get_description(package_content, description_pattern, resp, package, description_not_found_packages, force)
 
-        if package_content.get("AuthorEmail", "") == "" or package_content.get("AuthorEmail") is None or force:
-            try:
-                email_grps = re.findall(authoremail_pattern, resp)
+        get_anti_features(package_content, website, resp_int, force)
 
-                for item in email_grps:
-                    if "@" not in item:
-                        continue
-                    else:
-                        package_content["AuthorEmail"] = item
-                        break
-            except (IndexError, AttributeError):
-                yellow("WARNING: Couldn't get the Author email.\n")
-                authoremail_not_found_packages.append(package)
-
-        if (package_content.get("AntiFeatures", "") == "" or package_content.get("AntiFeatures") is None
-                or None in package_content.get("AntiFeatures") or force):
-            if ("github.com/" or "gitlab.com/") in website:
-                anti_features = ["NonFreeAssets"]
-            else:
-                anti_features = ["UpstreamNonFree", "NonFreeAssets"]
-
-            if re.search(r">Contains\sads</span>", resp_int) is not None:
-                anti_features.append("Ads")
-
-            if resp_int.find("<div>This app may share these data types with third parties<div") or resp_int.find(
-                    "<div>This app may collect these data types<div"):
-                anti_features.append("Tracking")
-
-            if re.search(r">In-app\spurchases</span>", resp_int) is not None:
-                anti_features.append("NonFreeDep")
-                anti_features.append("NonFreeNet")
-
-            package_content["AntiFeatures"] = anti_features
-
-            get_version(package_content, force, force_version, package_and_version, new_package)
+        get_version(package_content, package_and_version, new_package, force, force_version)
 
         if not write_yml(metadata_dir, package, package_content):
             continue
 
+        green("Finished information extraction for %s.\n" % package)
+
+        green("Downloading icons...\n")
+
         if force or not is_icon_complete(package, package_and_version[new_package][0], repo_dir, data_file_content):
             get_icon(resp_int, package, new_package, package_and_version[new_package][0], repo_dir, force,
-                     data_file_content, icon_pattern, icon_pattern_alt)
+                     data_file_content, icon_pattern, icon_pattern_alt, icon_not_found_packages)
+            green("Finished downloading icons for %s.\n" % package)
+        else:
+            blue("All icon files for %s already exist, skipping...\n" % package)
 
-        if dl_screenshots and (not screenshot_exist(package, repo_dir) or force):
-            get_screenshots(resp, repo_dir, force, package, new_package, screenshot_pattern)
+        if dl_screenshots:
+            green("Downloading screenshots...\n")
+            get_screenshots(resp, repo_dir, force, package, new_package, screenshot_pattern,
+                            screenshots_not_found_packages)
+            green("Finished downloading screenshots for %s.\n" % package)
 
         green("Finished processing %s.\n" % package)
 
@@ -858,6 +721,205 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
         for item in screenshots_not_found_packages:
             yellow(item)
         write_not_found_log(screenshots_not_found_packages, "NotFound_ScreenshotsURL")
+
+
+def get_anti_features(package_content: dict, website: str, resp_int: str, force: bool) -> None:
+    if (package_content.get("AntiFeatures", "") == "" or package_content.get("AntiFeatures") is None
+            or None in package_content.get("AntiFeatures") or force):
+        if ("github.com/" or "gitlab.com/") in website:
+            anti_features = ["NonFreeAssets"]
+        else:
+            anti_features = ["UpstreamNonFree", "NonFreeAssets"]
+
+        if re.search(r">Contains\sads</span>", resp_int) is not None:
+            anti_features.append("Ads")
+
+        if resp_int.find("<div>This app may share these data types with third parties<div") or resp_int.find(
+                "<div>This app may collect these data types<div"):
+            anti_features.append("Tracking")
+
+        if re.search(r">In-app\spurchases</span>", resp_int) is not None:
+            anti_features.append("NonFreeDep")
+            anti_features.append("NonFreeNet")
+
+        package_content["AntiFeatures"] = anti_features
+
+
+def get_author_email(package_content: dict, authoremail_pattern: str, resp: str, package: str,
+                     authoremail_not_found_packages: list, force: bool) -> None:
+    if package_content.get("AuthorEmail", "") == "" or package_content.get("AuthorEmail") is None or force:
+        try:
+            email_grps = re.findall(authoremail_pattern, resp)
+
+            for item in email_grps:
+                if "@" not in item:
+                    continue
+                else:
+                    package_content["AuthorEmail"] = item
+                    break
+        except (IndexError, AttributeError):
+            yellow("WARNING: Couldn't get the Author email.\n")
+            authoremail_not_found_packages.append(package)
+
+
+def get_description(package_content: dict, description_pattern: str, resp: str, package: str,
+                    description_not_found_packages: list, force: bool) -> None:
+    if package_content.get("Description", "") == "" or package_content.get("Description") is None or force:
+        try:
+            package_content["Description"] = html.unescape(
+                    re.search(description_pattern, resp).group(1)).replace("<br>", "\n").strip()
+        except (IndexError, AttributeError):
+            yellow("WARNING: Couldn't get the description.\n")
+            description_not_found_packages.append(package)
+
+
+def get_name(package_content: dict, name_pattern: str, resp: str, package: str,
+             name_not_found_packages: list, force: bool) -> None:
+    if package_content.get("Name", "") == "" or package_content.get("Name") is None or force:
+        try:
+            package_content["Name"] = html.unescape(re.search(name_pattern, resp).group(1)).strip()
+        except (IndexError, AttributeError):
+            yellow("WARNING: Couldn't get the application name.\n")
+            name_not_found_packages.append(package)
+
+
+def get_categories(package_content: dict, category_pattern: str, resp_int: str, package: str,
+                   category_not_found_packages: list, data_file_content: dict, force: bool) -> None:
+    if (package_content.get("Categories", "") == "" or
+            package_content.get("Categories", "") == ["fdroid_repo"] or
+            package_content.get("Categories") is None or
+            None in package_content.get("Categories") or force):
+        ret_grp = re.search(category_pattern, resp_int)
+
+        if ret_grp is not None:
+            cat_list = extract_categories(ret_grp, resp_int, data_file_content)
+            package_content["Categories"] = cat_list
+        else:
+            yellow("WARNING: Couldn't get the categories.\n")
+            category_not_found_packages.append(package)
+
+
+def get_repo_info_and_license(package_content: dict, gitlab_repo_id_pattern: str, website: str,
+                              data_file_content: dict, force: bool) -> None:
+    if "https://github.com/" in website or "http://github.com/" in website:
+        repo = re.sub(r"(https?)(://github.com/[^/]+/[^/]+).*", r"https\2", website)
+        api_repo = re.sub(r"(https?)(://github.com/)([^/]+/[^/]+).*",
+                          r"https://api.github.com/repos/\3", website)
+
+        get_license(package_content, force, api_repo, data_file_content)
+
+        if (package_content.get("IssueTracker", "") == "" or package_content.get("IssueTracker") is None
+                or force):
+            package_content["IssueTracker"] = repo + "/issues"
+
+        if package_content.get("SourceCode", "") == "" or package_content.get("SourceCode") is None or force:
+            package_content["SourceCode"] = repo
+
+        if package_content.get("Changelog", "") == "" or package_content.get("Changelog") is None or force:
+            package_content["Changelog"] = repo + "/releases/latest"
+
+        if package_content.get("Repo", "") == "" or package_content.get("Repo") is None or force:
+            package_content["Repo"] = repo
+    elif "https://gitlab.com/" in website or "http://gitlab.com/" in website:
+        repo = re.sub(r"(https?)(://gitlab.com/[^/]+/[^/]+).*", r"https\2", website)
+        git_repo = urllib.request.urlopen(repo).read().decode()
+
+        try:
+            repo_id = re.search(gitlab_repo_id_pattern, git_repo).groups(1)
+            api_repo = "https://gitlab.com/api/v4/projects/" + repo_id[0].strip() + "?license=yes"
+            get_license(package_content, force, api_repo, data_file_content)
+        except (IndexError, AttributeError):
+            pass
+
+        if (package_content.get("IssueTracker", "") == "" or package_content.get("IssueTracker") is None
+                or force):
+            package_content["IssueTracker"] = repo + "/-/issues"
+
+        if package_content.get("SourceCode", "") == "" or package_content.get("SourceCode") is None or force:
+            package_content["SourceCode"] = repo
+
+        if package_content.get("Changelog", "") == "" or package_content.get("Changelog") is None or force:
+            package_content["Changelog"] = repo + "/-/releases"
+
+        if package_content.get("Repo", "") == "" or package_content.get("Repo") is None or force:
+            package_content["Repo"] = repo
+    elif (package_content.get("License", "") == "" or package_content.get("License", "") == "Unknown"
+          or package_content.get("License") is None or force):
+        package_content["License"] = "Copyright"
+
+
+def get_website(package_content: dict, website_pattern: str, resp: str, package: str, website_not_found_packages: list,
+                force: bool) -> str:
+    website = ""
+
+    try:
+        website = (re.search(website_pattern, resp).group(1).strip())
+    except (IndexError, AttributeError):
+        yellow("WARNING: Couldn't get the app website.\n")
+        website_not_found_packages.append(package)
+
+    if website != "" and (package_content.get("WebSite", "") == "" or package_content.get("WebSite") is None
+                          or force):
+        package_content["WebSite"] = website.replace("http://", "https://")
+
+    return website
+
+
+def get_author_name(package_content: dict, authorname_pattern: str, resp: str, package: str,
+                    authorname_not_found_packages: list, force: bool) -> None:
+    try:
+        if package_content.get("AuthorName", "") == "" or package_content.get("AuthorName") is None or force:
+            package_content["AuthorName"] = html.unescape(re.search(authorname_pattern, resp).group(1)).strip()
+    except (IndexError, AttributeError):
+        yellow("WARNING: Couldn't get the Author name.\n")
+        authorname_not_found_packages.append(package)
+
+
+def get_play_store_page(playstore_url_comp: str, playstore_url_comp_int: str, package: str, new_package: str,
+                        resp_list: list, not_found_packages: list, package_content: dict, force: bool,
+                        force_version: bool, package_and_version: dict, metadata_dir: str) -> bool:
+    try:
+        resp_list.append(urllib.request.urlopen(playstore_url_comp).read().decode())
+    except HTTPError as e:
+        if e.code == 404:
+            yellow("%s was not found on the Play Store.\n" % new_package)
+
+            not_found_packages.append(package)
+
+            get_version(package_content, force, force_version, package_and_version, new_package)
+            write_yml(metadata_dir, package, package_content)
+
+            green("Finished processing %s.\n" % package)
+        return False
+
+    if playstore_url_comp == playstore_url_comp_int:
+        resp_list.append(resp_list[0])
+    else:
+        try:
+            resp_list.append(urllib.request.urlopen(playstore_url_comp_int).read().decode())
+        except HTTPError as e:
+            if e.code == 404:
+                yellow("%s was not found on the Play Store (en-US).\n" % new_package)
+
+                not_found_packages.append(package)
+
+                get_version(package_content, force, force_version, package_and_version, new_package)
+                write_yml(metadata_dir, package, package_content)
+
+                green("Finished processing %s.\n" % package)
+            return False
+
+    if ">We're sorry, the requested URL was not found on this server.</div>" in resp_list[1]:
+        yellow("%s was not found on the Play Store.\n" % new_package)
+        not_found_packages.append(package)
+
+        get_version(package_content, force, force_version, package_and_version, new_package)
+        write_yml(metadata_dir, package, package_content)
+
+        green("Finished processing %s.\n" % package)
+        return False
+
+    return True
 
 
 def write_yml(metadata_dir: str, package: str, package_content: Dict) -> bool:
@@ -940,7 +1002,8 @@ def normalize_license(data_file_content: dict, license_key: str) -> str:
         return "Other"
 
 
-def get_screenshots(resp: str, repo_dir: str, force: bool, package: str, new_package: str, screenshot_pattern: str):
+def get_screenshots(resp: str, repo_dir: str, force: bool, package: str, new_package: str, screenshot_pattern: str,
+                    screenshots_not_found_packages: list):
     # Locale directory must be en-US and not the real locale because that's what F-Droid
     # defaults to and this program does not do multi-lang download.
     screenshots_path = os.path.join(repo_dir, package, "en-US", "phoneScreenshots")
@@ -1005,8 +1068,6 @@ def get_screenshots(resp: str, repo_dir: str, force: bool, package: str, new_pac
             red("Error downloading screenshots. Permission denied.\n")
             return
 
-    green("Finished downloading screenshots for %s.\n" % package)
-
 
 def extract_icon_url(resp_int: str, icon_pattern: str) -> str | None:
     try:
@@ -1027,7 +1088,7 @@ def extract_icon_url_alt(resp_int: str, icon_pattern_alt: str) -> str | None:
 
 
 def get_icon(resp_int: str, package: str, new_package: str, version_code: int | None, repo_dir: str, force: bool,
-             data_file_content: dict, icon_pattern: str, icon_pattern_alt: str):
+             data_file_content: dict, icon_pattern: str, icon_pattern_alt: str, icon_not_found_packages: list):
     if version_code is None:
         # if a metadata_dir is specified and the corresponding APK file doesn't exist in the repo dir then we can't get the
         # VersionCode needed to store the icons hence return
