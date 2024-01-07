@@ -338,7 +338,7 @@ def convert_apks(key_file: str, cert_file: str, password: List[str] | None, repo
             from win32_setctime import setctime
         except ImportError:
             setctime = None
-            yellow("WARNING: win32_setctime module is not installed,"
+            yellow("\tWARNING: win32_setctime module is not installed,"
                    " creation times wont be restored for the converted APK files.\n")
 
     if build_tools_path is not None:
@@ -369,55 +369,55 @@ def convert_apks(key_file: str, cert_file: str, password: List[str] | None, repo
         try:
             old_app_stats = os.lstat(apks_path)
         except FileNotFoundError:
-            yellow("WARNING: %s does not exist.\n" % apks_path)
+            yellow("\tWARNING: %s does not exist.\n" % apks_path)
         except PermissionError:
-            yellow("WARNING: Couldn't get stats of the APKS file,"
+            yellow("\tWARNING: Couldn't get stats of the APKS file,"
                    " check permissions. Old timestamps wont be restored.\n")
 
         try:
             subprocess.run(convert_command % (apks_path, apk_path_unsigned), stdout=subprocess.DEVNULL,
                            stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            red("ERROR: There was an error converting " + file + " to .apk\nError: %s\n" % e)
+            red("\tERROR: There was an error converting " + file + " to .apk\nError: %s\n" % e)
             if os.path.exists(apk_path_unsigned):
                 try:
                     os.remove(apk_path_unsigned)
                 except PermissionError:
-                    red("ERROR: Couldn't remove unfinished APK file. Permission denied.\n")
+                    red("\t\tERROR: Couldn't remove unfinished APK file. Permission denied.\n")
             continue
 
         try:
             subprocess.run(sign_command % (apk_path_unsigned, apk_path_signed), stdout=subprocess.DEVNULL,
                            stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            yellow("WARNING: There was an error signing " + os.path.splitext(file)[0] + ".apk")
-            red("Error: %s\n" % e)
+            yellow("\tWARNING: There was an error signing " + os.path.splitext(file)[0] + ".apk")
+            red("\tError: %s\n" % e)
             continue
 
         if old_app_stats is not None:
             try:
                 os.utime(apk_path_signed, (old_app_stats.st_atime, old_app_stats.st_mtime))
             except PermissionError:
-                yellow("WARNING: Couldn't restore old timestamps. Permission denied.\n")
+                yellow("\tWARNING: Couldn't restore old timestamps. Permission denied.\n")
 
             if platform.system() == "Windows" and "win32_setctime" in sys.modules:
                 try:
                     setctime(apk_path_signed, old_app_stats.st_birthtime)
                 except PermissionError:
-                    yellow("WARNING: Couldn't restore old creation date. Permission denied.\n")
+                    yellow("\tWARNING: Couldn't restore old creation date. Permission denied.\n")
 
         proc = True
 
         try:
             os.remove(apks_path)
         except PermissionError:
-            yellow("WARNING: Error deleting file " + apks_path + ". Permission denied\n")
+            yellow("\tWARNING: Error deleting file " + apks_path + ". Permission denied\n")
             continue
 
         try:
             os.remove(apk_path_unsigned)
         except PermissionError:
-            yellow("WARNING: Error deleting file " + apk_path_unsigned + ". Permission denied\n")
+            yellow("\tWARNING: Error deleting file " + apk_path_unsigned + ". Permission denied\n")
             continue
 
     if proc:
@@ -560,7 +560,7 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
                 if package_content is None:
                     package_content = {}
             except PermissionError:
-                yellow("WARNING: Couldn't read metadata file. Permission denied, skipping package...\n")
+                yellow("\tWARNING: Couldn't read metadata file. Permission denied, skipping package...\n")
                 continue
         else:
             package_content = {}
@@ -572,21 +572,21 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
                     if dl_screenshots:
                         if screenshot_exist(package, repo_dir):
                             blue(
-                                    "Skipping processing for the package as all the metadata is complete in the YML file,"
+                                    "\tSkipping processing for the package as all the metadata is complete in the YML file,"
                                     " and screenshots exist.\n")
                             continue
                     else:
-                        blue("Skipping processing for the package as all the metadata is complete in the YML file.\n")
+                        blue("\tSkipping processing for the package as all the metadata is complete in the YML file.\n")
                         continue
                 else:
                     if dl_screenshots:
                         if screenshot_exist(package, repo_dir):
                             blue(
-                                    "Skipping processing for the package as all the metadata is complete in the YML file,"
+                                    "\tSkipping processing for the package as all the metadata is complete in the YML file,"
                                     " all the icons are available and screenshots exist.\n")
                             continue
                     else:
-                        blue("Skipping processing for the package as all the metadata is complete in the YML file"
+                        blue("\tSkipping processing for the package as all the metadata is complete in the YML file"
                              " and all the icons are available.\n")
                         continue
 
@@ -597,7 +597,7 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
 
         resp_list = []
 
-        green("Downloading Play Store pages...\n")
+        green("\tDownloading Play Store pages...\n")
 
         if not get_play_store_page(playstore_url_comp, playstore_url_comp_int, package, new_package, resp_list,
                                    not_found_packages, package_content, force, force_version, package_and_version,
@@ -607,7 +607,7 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
         resp = resp_list[0]
         resp_int = resp_list[1]
 
-        green("Extracting information...\n")
+        green("\tExtracting information...\n")
 
         get_name(package_content, name_pattern, resp, package, name_not_found_packages, force)
 
@@ -625,7 +625,7 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
         if package_content.get("Summary", "") == "" or package_content.get("Summary") is None or force:
             if not get_summary(resp, package_content, summary_pattern):
                 if not get_summary(resp, package_content, summary_pattern_alt):
-                    yellow("WARNING: Couldn't get the summary.\n")
+                    yellow("\tWARNING: Couldn't get the summary.\n")
                     summary_not_found_packages.append(package)
 
         get_description(package_content, description_pattern, resp, package, description_not_found_packages, force)
@@ -637,30 +637,30 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
         if not write_yml(metadata_dir, package, package_content):
             continue
 
-        green("Finished information extraction for %s.\n" % package)
+        green("\tFinished information extraction for %s.\n" % package)
 
-        green("Downloading icons...\n")
+        green("\tDownloading icons...\n")
 
         if force or not is_icon_complete(package, package_and_version[new_package][0], repo_dir, data_file_content):
             get_icon(resp_int, package, new_package, package_and_version[new_package][0], repo_dir, force,
                      data_file_content, icon_pattern, icon_pattern_alt, icon_not_found_packages)
-            green("Finished downloading icons for %s.\n" % package)
+            green("\tFinished downloading icons for %s.\n" % package)
         else:
-            blue("All icon files for %s already exist, skipping...\n" % package)
+            blue("\tAll icon files for %s already exist, skipping...\n" % package)
 
         if dl_screenshots:
-            green("Downloading screenshots...\n")
+            green("\tDownloading screenshots...\n")
             get_screenshots(resp, repo_dir, force, package, new_package, screenshot_pattern,
                             screenshots_not_found_packages)
-            green("Finished downloading screenshots for %s.\n" % package)
+            green("\tFinished downloading screenshots for %s.\n" % package)
 
         green("Finished processing %s.\n" % package)
 
     if proc:
-        green("\nEverything done! Don't forget to run:")
+        green("Everything done! Don't forget to run:")
         cyan("\nfdroid rewritemeta\nfdroid update")
     else:
-        green("\nNothing was processed, no files changed.")
+        green("Nothing was processed, no files changed.")
 
     if len(not_found_packages) != 0:
         yellow("\nThese packages weren't found on the Play Store:\n")
@@ -758,7 +758,7 @@ def get_author_email(package_content: dict, authoremail_pattern: str, resp: str,
                     package_content["AuthorEmail"] = item
                     break
         except (IndexError, AttributeError):
-            yellow("WARNING: Couldn't get the Author email.\n")
+            yellow("\tWARNING: Couldn't get the Author email.\n")
             authoremail_not_found_packages.append(package)
 
 
@@ -769,7 +769,7 @@ def get_description(package_content: dict, description_pattern: str, resp: str, 
             package_content["Description"] = html.unescape(
                     re.search(description_pattern, resp).group(1)).replace("<br>", "\n").strip()
         except (IndexError, AttributeError):
-            yellow("WARNING: Couldn't get the description.\n")
+            yellow("\tWARNING: Couldn't get the description.\n")
             description_not_found_packages.append(package)
 
 
@@ -779,7 +779,7 @@ def get_name(package_content: dict, name_pattern: str, resp: str, package: str,
         try:
             package_content["Name"] = html.unescape(re.search(name_pattern, resp).group(1)).strip()
         except (IndexError, AttributeError):
-            yellow("WARNING: Couldn't get the application name.\n")
+            yellow("\tWARNING: Couldn't get the application name.\n")
             name_not_found_packages.append(package)
 
 
@@ -795,7 +795,7 @@ def get_categories(package_content: dict, category_pattern: str, resp_int: str, 
             cat_list = extract_categories(ret_grp, resp_int, data_file_content)
             package_content["Categories"] = cat_list
         else:
-            yellow("WARNING: Couldn't get the categories.\n")
+            yellow("\tWARNING: Couldn't get the categories.\n")
             category_not_found_packages.append(package)
 
 
@@ -855,7 +855,7 @@ def get_website(package_content: dict, website_pattern: str, resp: str, package:
     try:
         website = (re.search(website_pattern, resp).group(1).strip())
     except (IndexError, AttributeError):
-        yellow("WARNING: Couldn't get the app website.\n")
+        yellow("\tWARNING: Couldn't get the app website.\n")
         website_not_found_packages.append(package)
 
     if website != "" and (package_content.get("WebSite", "") == "" or package_content.get("WebSite") is None
@@ -871,7 +871,7 @@ def get_author_name(package_content: dict, authorname_pattern: str, resp: str, p
         if package_content.get("AuthorName", "") == "" or package_content.get("AuthorName") is None or force:
             package_content["AuthorName"] = html.unescape(re.search(authorname_pattern, resp).group(1)).strip()
     except (IndexError, AttributeError):
-        yellow("WARNING: Couldn't get the Author name.\n")
+        yellow("\tWARNING: Couldn't get the Author name.\n")
         authorname_not_found_packages.append(package)
 
 
@@ -882,11 +882,11 @@ def get_play_store_page(playstore_url_comp: str, playstore_url_comp_int: str, pa
         resp_list.append(urllib.request.urlopen(playstore_url_comp).read().decode())
     except HTTPError as e:
         if e.code == 404:
-            yellow("%s was not found on the Play Store.\n" % new_package)
+            yellow("\t%s was not found on the Play Store.\n" % new_package)
 
             not_found_packages.append(package)
 
-            get_version(package_content, force, force_version, package_and_version, new_package)
+            get_version(package_content, package_and_version, new_package, force, force_version)
             write_yml(metadata_dir, package, package_content)
 
             green("Finished processing %s.\n" % package)
@@ -899,21 +899,21 @@ def get_play_store_page(playstore_url_comp: str, playstore_url_comp_int: str, pa
             resp_list.append(urllib.request.urlopen(playstore_url_comp_int).read().decode())
         except HTTPError as e:
             if e.code == 404:
-                yellow("%s was not found on the Play Store (en-US).\n" % new_package)
+                yellow("\t%s was not found on the Play Store (en-US).\n" % new_package)
 
                 not_found_packages.append(package)
 
-                get_version(package_content, force, force_version, package_and_version, new_package)
+                get_version(package_content, package_and_version, new_package, force, force_version)
                 write_yml(metadata_dir, package, package_content)
 
                 green("Finished processing %s.\n" % package)
             return False
 
     if ">We're sorry, the requested URL was not found on this server.</div>" in resp_list[1]:
-        yellow("%s was not found on the Play Store.\n" % new_package)
+        yellow("\t%s was not found on the Play Store.\n" % new_package)
         not_found_packages.append(package)
 
-        get_version(package_content, force, force_version, package_and_version, new_package)
+        get_version(package_content, package_and_version, new_package, force, force_version)
         write_yml(metadata_dir, package, package_content)
 
         green("Finished processing %s.\n" % package)
@@ -929,7 +929,7 @@ def write_yml(metadata_dir: str, package: str, package_content: Dict) -> bool:
         stream.close()
         return True
     except PermissionError:
-        red("ERROR: Couldn't write YML file. Permission denied.\n")
+        red("\tERROR: Couldn't write YML file for %s. Permission denied.\n" % package)
         return False
 
 
@@ -974,13 +974,13 @@ def get_license(package_content: dict, force: bool, api_repo: str, data_file_con
         try:
             api_load = urllib.request.urlopen(api_repo).read().decode()
         except HTTPError:
-            yellow("Couldn't download the api response for the license.\n")
+            yellow("\tCouldn't download the api response for the license.\n")
             return
 
         try:
             resp_api = json.loads(api_load)  # type: dict
         except json.JSONDecodeError:
-            yellow("Couldn't load the api response for the license.\n")
+            yellow("\tCouldn't load the api response for the license.\n")
             return
 
         if resp_api["license"] is not None:
@@ -1014,19 +1014,19 @@ def get_screenshots(resp: str, repo_dir: str, force: bool, package: str, new_pac
     except FileExistsError:
         pass
     except PermissionError:
-        red("Error creating the directory where the screenshots should be saved. Permission denied.\n")
+        red("\tError creating the directory where the screenshots should be saved. Permission denied.\n")
         return
 
     if not force and len(os.listdir(screenshots_path)) > 0:
-        blue("Screenshots for %s already exists, skipping...\n" % package)
+        blue("\tScreenshots for %s already exists, skipping...\n" % package)
         return
 
-    green("Downloading screenshots for %s\n" % package)
+    green("\tDownloading screenshots for %s\n" % package)
 
     img_url_list = re.findall(screenshot_pattern, resp)  # type: List[str]
 
     if len(img_url_list) == 0:
-        yellow("Couldn't get screenshots URLs for %s\n" % new_package)
+        yellow("\tCouldn't get screenshots URLs for %s\n" % new_package)
         screenshots_not_found_packages.append(package)
         return
 
@@ -1039,13 +1039,13 @@ def get_screenshots(resp: str, repo_dir: str, force: bool, package: str, new_pac
     except FileNotFoundError:
         pass
     except PermissionError:
-        red("Couldn't remove the old backup directory. Permission denied.\n")
+        red("\tCouldn't remove the old backup directory. Permission denied.\n")
         return
 
     try:
         os.makedirs(backup_path)
     except PermissionError:
-        red("Couldn't create backup directory for screenshots. Permission denied.\n")
+        red("\tCouldn't create backup directory for screenshots. Permission denied.\n")
         return
 
     try:
@@ -1053,7 +1053,7 @@ def get_screenshots(resp: str, repo_dir: str, force: bool, package: str, new_pac
     except FileNotFoundError:
         pass
     except PermissionError:
-        red("Couldn't move the screenshots to the backup directory. Permission denied.\n")
+        red("\tCouldn't move the screenshots to the backup directory. Permission denied.\n")
         return
 
     for img_url in img_url_list:
@@ -1065,7 +1065,7 @@ def get_screenshots(resp: str, repo_dir: str, force: bool, package: str, new_pac
         except HTTPError:
             pass
         except PermissionError:
-            red("Error downloading screenshots. Permission denied.\n")
+            red("\tError downloading screenshots. Permission denied.\n")
             return
 
 
@@ -1092,7 +1092,7 @@ def get_icon(resp_int: str, package: str, new_package: str, version_code: int | 
     if version_code is None:
         # if a metadata_dir is specified and the corresponding APK file doesn't exist in the repo dir then we can't get the
         # VersionCode needed to store the icons hence return
-        yellow("WARNING: The corresponding APK file doesn't exist in the repo directory, "
+        yellow("\tWARNING: The corresponding APK file doesn't exist in the repo directory, "
                "version code can't be retrieved and icons wont be downloaded.\n")
         return
 
@@ -1101,7 +1101,7 @@ def get_icon(resp_int: str, package: str, new_package: str, version_code: int | 
     if icon_base_url is None:
         icon_base_url_alt = extract_icon_url_alt(resp_int, icon_pattern_alt)
         if icon_base_url_alt is None:
-            yellow("Couldn't extract icon URL for %s.\n" % new_package)
+            yellow("\tCouldn't extract icon URL for %s.\n" % new_package)
             icon_not_found_packages.append(package)
             return
 
@@ -1113,7 +1113,7 @@ def get_icon(resp_int: str, package: str, new_package: str, version_code: int | 
         except FileExistsError:
             pass
         except PermissionError:
-            red("ERROR: Can't create directory for \"" + dirname +
+            red("\tERROR: Can't create directory for \"" + dirname +
                 "\". Permission denied, skipping icon download for this package.\n")
             icon_not_found_packages.append(package)
             return
@@ -1130,9 +1130,9 @@ def get_icon(resp_int: str, package: str, new_package: str, version_code: int | 
             try:
                 urllib.request.urlretrieve(url, icon_path)
             except urllib.error.HTTPError:
-                yellow("Couldn't download icon for %s." % dirname)
+                yellow("\tCouldn't download icon for %s." % dirname)
             except PermissionError:
-                yellow("Couldn't write icon file for %s. Permission denied." % dirname)
+                yellow("\tCouldn't write icon file for %s. Permission denied." % dirname)
     elif icon_base_url_alt is not None:
         for dirname in data_file_content["Icon_Relations"].keys():
             icon_path = os.path.join(repo_dir, dirname, filename)
@@ -1146,9 +1146,9 @@ def get_icon(resp_int: str, package: str, new_package: str, version_code: int | 
             try:
                 urllib.request.urlretrieve(url, icon_path)
             except urllib.error.HTTPError:
-                yellow("Couldn't download icon for %s." % dirname)
+                yellow("\tCouldn't download icon for %s." % dirname)
             except PermissionError:
-                yellow("Couldn't write icon file for %s. Permission denied." % dirname)
+                yellow("\tCouldn't write icon file for %s. Permission denied." % dirname)
 
 
 def extract_categories(ret_grp: re.Match, resp_int: str, data_file_content: dict):
