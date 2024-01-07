@@ -252,6 +252,8 @@ def main():
 
         metadata_dir = os.path.join(os.path.split(repo_dir)[0], "metadata")
 
+        green("Getting package names, version names and version codes...\n")
+
         for apk_file in os.listdir(repo_dir):
             apk_file_path = os.path.join(repo_dir, apk_file)
 
@@ -267,6 +269,8 @@ def main():
                     package_list[base_name] = base_name
                     package_and_version[base_name] = (int(ApkFile(apk_file_path).version_code),
                                                       str(ApkFile(apk_file_path).version_name))
+
+        green("Finished getting package names, version names and version.\n")
 
         retrieve_info(package_list, package_and_version, lang, metadata_dir, repo_dir, args.force, args.force_version,
                       args.download_screenshots, data_file_content)
@@ -726,9 +730,14 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
             if re.search(r">Contains\sads</span>", resp_int) is not None:
                 anti_features.append("Ads")
 
+            if resp_int.find("<div>This app may share these data types with third parties<div") or resp_int.find(
+                    "<div>This app may collect these data types<div"):
+                anti_features.append("Tracking")
+
             if re.search(r">In-app\spurchases</span>", resp_int) is not None:
                 anti_features.append("NonFreeDep")
                 anti_features.append("NonFreeNet")
+
             package_content["AntiFeatures"] = anti_features
 
         if (package_content.get("CurrentVersionCode", "") == "" or package_content.get("CurrentVersionCode", "") == 0
