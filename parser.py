@@ -548,7 +548,7 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
             package_content = {}
 
         if not force and not force_version:  # then check for available data
-            if is_metadata_complete(package_content) and is_icon_complete(package, package_and_version[package][0],
+            if is_metadata_complete(package_content) and is_icon_complete(package, package_and_version[new_package][0],
                                                                           repo_dir, data_file_content):
                 if package_and_version[new_package][0] is None:
                     if dl_screenshots:
