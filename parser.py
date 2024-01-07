@@ -354,7 +354,7 @@ def is_icon_complete(package: str, version_code: int | None, repo_dir: str, data
         if os.path.exists(icon_path):
             icon_relations[dirname] = True
 
-    if any(icon_relations.values()):
+    if all(icon_relations.values()):
         return True
     else:
         return False
