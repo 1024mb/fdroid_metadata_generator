@@ -459,6 +459,7 @@ def is_metadata_complete(package_content: Dict) -> bool:
             and package_content.get("AntiFeatures", "") != "" and package_content.get("CurrentVersionCode", "") != ""
             and package_content.get("CurrentVersion", "") != "" and package_content.get("CurrentVersionCode", "") != 0
             and package_content.get("CurrentVersion", "") != "" and package_content.get("License", "") != "0"
+            and package_content.get("CurrentVersionCode", "") != 2147483647
             and package_content.get("License", "") != "Unknown"):
         return True
     else:
@@ -496,6 +497,24 @@ def screenshot_exist(package: str, repo_dir: str) -> bool:
         return True
     else:
         return False
+
+
+def get_version(package_content: Dict, force: bool, force_version: bool, package_and_version: Dict,
+                new_package: str) -> None:
+    if (package_content.get("CurrentVersionCode", "") == "" or package_content.get("CurrentVersionCode", "") == 0
+            or package_content.get("CurrentVersionCode", "") == 2147483647
+            or package_content.get("CurrentVersionCode") is None or force or force_version):
+        if package_and_version[new_package][0] is not None:
+            package_content["CurrentVersionCode"] = int(package_and_version[new_package][0])
+        else:
+            package_content["CurrentVersionCode"] = 0
+
+    if (package_content.get("CurrentVersion", "") == "" or package_content.get("CurrentVersion", "") == "0"
+            or package_content.get("CurrentVersion") is None or force or force_version):
+        if package_and_version[new_package][1] is not None:
+            package_content["CurrentVersion"] = str(package_and_version[new_package][1])
+        else:
+            package_content["CurrentVersion"] = "0"
 
 
 def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, Tuple[int, str]], lang: str,
@@ -541,6 +560,9 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
                 stream = open(os.path.join(metadata_dir, package + ".yml"), "r", encoding="utf_8")
                 package_content = yaml.load(stream, Loader=Loader)  # type:Dict
                 stream.close()
+
+                if package_content is None:
+                    package_content = {}
             except PermissionError:
                 yellow("WARNING: Couldn't read metadata file. Permission denied, skipping package...\n")
                 continue
@@ -585,7 +607,13 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
         except HTTPError as e:
             if e.code == 404:
                 yellow("%s was not found on the Play Store.\n" % new_package)
+
                 not_found_packages.append(package)
+
+                get_version(package_content, force, force_version, package_and_version, new_package)
+                write_yml(metadata_dir, package, package_content)
+
+                green("Finished processing %s.\n" % package)
             continue
 
         if playstore_url_comp == playstore_url_comp_int:
@@ -596,12 +624,23 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
             except HTTPError as e:
                 if e.code == 404:
                     yellow("%s was not found on the Play Store (en-US).\n" % new_package)
+
                     not_found_packages.append(package)
+
+                    get_version(package_content, force, force_version, package_and_version, new_package)
+                    write_yml(metadata_dir, package, package_content)
+
+                    green("Finished processing %s.\n" % package)
                 continue
 
         if ">We're sorry, the requested URL was not found on this server.</div>" in resp_int:
             yellow("%s was not found on the Play Store.\n" % new_package)
             not_found_packages.append(package)
+
+            get_version(package_content, force, force_version, package_and_version, new_package)
+            write_yml(metadata_dir, package, package_content)
+
+            green("Finished processing %s.\n" % package)
             continue
 
         green("Extracting information...\n")
@@ -740,22 +779,9 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
 
             package_content["AntiFeatures"] = anti_features
 
-        if (package_content.get("CurrentVersionCode", "") == "" or package_content.get("CurrentVersionCode", "") == 0
-                or package_content.get("CurrentVersionCode") is None or force or force_version):
-            if package_and_version[new_package][0] is not None:
-                package_content["CurrentVersionCode"] = int(package_and_version[new_package][0])
+            get_version(package_content, force, force_version, package_and_version, new_package)
 
-        if (package_content.get("CurrentVersion", "") == "" or package_content.get("CurrentVersion", "") == "0"
-                or package_content.get("CurrentVersion") is None or force or force_version):
-            if package_and_version[new_package][1] is not None:
-                package_content["CurrentVersion"] = str(package_and_version[new_package][1])
-
-        try:
-            stream = open(os.path.join(metadata_dir, package + ".yml"), "w", encoding="utf_8")
-            yaml.dump(package_content, stream, Dumper=Dumper, allow_unicode=True, encoding="utf_8")
-            stream.close()
-        except PermissionError:
-            red("ERROR: Couldn't write YML file. Permission denied.\n")
+        if not write_yml(metadata_dir, package, package_content):
             continue
 
         if force or not is_icon_complete(package, package_and_version[new_package][0], repo_dir, data_file_content):
@@ -774,64 +800,75 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
         green("\nNothing was processed, no files changed.")
 
     if len(not_found_packages) != 0:
-        yellow("\n\nThese packages weren't found on the Play Store:\n\n")
+        yellow("\nThese packages weren't found on the Play Store:\n")
         for item in not_found_packages:
             yellow(item)
         write_not_found_log(not_found_packages, "NotFound_Package")
 
     if len(authorname_not_found_packages) != 0:
-        yellow("\n\nThe AuthorName for these packages wasn't found on the Play Store:\n\n")
+        yellow("\nThe AuthorName for these packages wasn't found on the Play Store:\n")
         for item in authorname_not_found_packages:
             yellow(item)
         write_not_found_log(authorname_not_found_packages, "NotFound_AuthorName")
 
     if len(authoremail_not_found_packages) != 0:
-        yellow("\n\nThe AuthorName for these packages wasn't found on the Play Store:\n\n")
+        yellow("\nThe AuthorName for these packages wasn't found on the Play Store:\n")
         for item in authoremail_not_found_packages:
             yellow(item)
         write_not_found_log(authoremail_not_found_packages, "NotFound_AuthorEmail")
 
     if len(website_not_found_packages) != 0:
-        yellow("\n\nThe Website for these packages wasn't found on the Play Store:\n\n")
+        yellow("\nThe Website for these packages wasn't found on the Play Store:\n")
         for item in website_not_found_packages:
             yellow(item)
         write_not_found_log(website_not_found_packages, "NotFound_Website")
 
     if len(summary_not_found_packages) != 0:
-        yellow("\n\nThe Summary for these packages wasn't found on the Play Store:\n\n")
+        yellow("\nThe Summary for these packages wasn't found on the Play Store:\n")
         for item in summary_not_found_packages:
             yellow(item)
         write_not_found_log(summary_not_found_packages, "NotFound_Summary")
 
     if len(description_not_found_packages) != 0:
-        yellow("\n\nThe Description for these packages wasn't found on the Play Store:\n\n")
+        yellow("\nThe Description for these packages wasn't found on the Play Store:\n")
         for item in description_not_found_packages:
             yellow(item)
         write_not_found_log(description_not_found_packages, "NotFound_Description")
 
     if len(category_not_found_packages) != 0:
-        yellow("\n\nThe Category for these packages wasn't found on the Play Store:\n\n")
+        yellow("\nThe Category for these packages wasn't found on the Play Store:\n")
         for item in category_not_found_packages:
             yellow(item)
         write_not_found_log(category_not_found_packages, "NotFound_Category")
 
     if len(name_not_found_packages) != 0:
-        yellow("\n\nThe Name for these packages wasn't found on the Play Store:\n\n")
+        yellow("\nThe Name for these packages wasn't found on the Play Store:\n")
         for item in name_not_found_packages:
             yellow(item)
         write_not_found_log(name_not_found_packages, "NotFound_Name")
 
     if len(icon_not_found_packages) != 0:
-        yellow("\n\nThe icon URL for these packages wasn't found on the Play Store:\n\n")
+        yellow("\nThe icon URL for these packages wasn't found on the Play Store:\n")
         for item in icon_not_found_packages:
             yellow(item)
         write_not_found_log(icon_not_found_packages, "NotFound_IconURL")
 
     if len(screenshots_not_found_packages) != 0:
-        yellow("\n\nThe screenshots URL for these packages weren't found on the Play Store:\n\n")
+        yellow("\nThe screenshots URL for these packages weren't found on the Play Store:\n")
         for item in screenshots_not_found_packages:
             yellow(item)
         write_not_found_log(screenshots_not_found_packages, "NotFound_ScreenshotsURL")
+
+
+def write_yml(metadata_dir: str, package: str, package_content: Dict) -> bool:
+    try:
+        stream = open(os.path.join(metadata_dir, package + ".yml"), "w", encoding="utf_8")
+        yaml.dump(package_content, stream, Dumper=Dumper, allow_unicode=True, encoding="utf_8")
+        stream.close()
+        return True
+    except PermissionError:
+        red("ERROR: Couldn't write YML file. Permission denied.\n")
+        return False
 
 
 def get_summary(resp: str, package_content: dict, pattern: str) -> bool:
@@ -907,6 +944,7 @@ def get_screenshots(resp: str, repo_dir: str, force: bool, package: str, new_pac
     # Locale directory must be en-US and not the real locale because that's what F-Droid
     # defaults to and this program does not do multi-lang download.
     screenshots_path = os.path.join(repo_dir, package, "en-US", "phoneScreenshots")
+    backup_path = os.path.join(repo_dir, "backup", package, "en-US", "phoneScreenshots")
 
     try:
         os.makedirs(screenshots_path)
@@ -932,6 +970,28 @@ def get_screenshots(resp: str, repo_dir: str, force: bool, package: str, new_pac
     pad_amount = len(str(len(img_url_list)))
 
     i = 0
+
+    try:
+        os.remove(backup_path)
+    except FileNotFoundError:
+        pass
+    except PermissionError:
+        red("Couldn't remove the old backup directory. Permission denied.\n")
+        return
+
+    try:
+        os.makedirs(backup_path)
+    except PermissionError:
+        red("Couldn't create backup directory for screenshots. Permission denied.\n")
+        return
+
+    try:
+        os.rename(screenshots_path, backup_path)
+    except FileNotFoundError:
+        pass
+    except PermissionError:
+        red("Couldn't move the screenshots to the backup directory. Permission denied.\n")
+        return
 
     for img_url in img_url_list:
         url = img_url + "=w9999"
