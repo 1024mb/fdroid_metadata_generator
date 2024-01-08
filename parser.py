@@ -33,16 +33,16 @@ def main():
     parser.add_argument("-l", "--language",
                         help="Language of the information to retrieve.",
                         required=True)
-    parser.add_argument("-f", "--force_metadata",
+    parser.add_argument("-f", "--force-metadata",
                         help="Force overwrite existing metadata.",
                         action="store_true")
-    parser.add_argument("-fv", "--force_version",
+    parser.add_argument("-fv", "--force-version",
                         help="Force updating version name and code even if they are already specified in the YML file.",
                         action="store_true")
-    parser.add_argument("-fs", "--force_screenshots",
+    parser.add_argument("-fs", "--force-screenshots",
                         help="Force overwrite existing screenshots.",
                         action="store_true")
-    parser.add_argument("-fi", "--force_icons",
+    parser.add_argument("-fi", "--force-icons",
                         help="Force overwrite existing icons.",
                         action="store_true")
     parser.add_argument("-fa", "--force-all",
