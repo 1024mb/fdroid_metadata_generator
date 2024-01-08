@@ -87,6 +87,24 @@ then the program will require:
   Use `-aep`/`--apk-editor-path`.
 - ApkSigner: It must be in your PATH or you can also specify the path with `-btp`/`--build-tools-path`.
 
+The anti-features are detected base on some keywords, is not perfect:
+
+* `NonFreeAssets` is always assumed.
+* If no repo is found `UpstreamNonFree` is assumed.
+* If ads are detected `Ads` is used.
+* If any data sharing or collection is detected `Tracking` is used.
+* If In-app purchases are detected `NonFreeDep` and `NonFreeNet` are used.
+
+The license extraction is done this way:
+
+1. If the app's website is a GitHub or a GitLab repository the license of the app is assumed to be the same than the
+   license of the repository.
+2. If the license from the repo doesn't match any licenses accepted by F-Droid (set in the `data` file) then "Other"
+   will be used.
+3. If the app's website is not a repository "Copyright" will be assumed.
+
+-------------------------
+
 Don't forget to run these two commands after all the download is completed:
 
 ```console
@@ -113,7 +131,7 @@ The contents are as follows:
   value/right). Icons are squares so only the one number is needed.
 
 The default path for the data file is `<path-to-this-program>/data.json`, other path can be specified
-using `-df`/`--data-file`
+using `-df`/`--data-file`.
 
 -------------------------
 
