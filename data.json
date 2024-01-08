@@ -298,5 +298,19 @@
     "icons-320": "96",
     "icons-480": "144",
     "icons-640": "192"
+  },
+  "Regex_Patterns": {
+    "author_name_pattern": "div\\sclass=\"Vbfug\\sauoIOc\"><a\\shref[^>]+><span>(.+?)</span>",
+    "author_email_pattern": "<div\\sclass=\"xFVDSb\">.+?</div><div\\sclass=\"pSEeg\">(.+?)</div>",
+    "name_pattern": "itemprop=\"name\">(.+?)</h1>",
+    "website_pattern": "<meta\\sname=\"appstore:developer_url\"\\scontent=\"([^\"]+)\"><meta",
+    "category_pattern": "<span\\sjsname=\"V67aGc\"\\sclass=\"VfPpkd-vQzf8d\"\\saria-hidden=\"true\">([^<]+)<\/span><a\\sclass=\"WpHeLc\\sVfPpkd-mRLv6\\sVfPpkd-RLmnJb\"\\shref=\"\/store\/(?:apps\/category|search\\?)",
+    "summary_pattern": "<div\\sclass=\"[^\"]+\"\\sdata-g-id=\"description\">(.+?)<br>",
+    "summary_pattern_alt": "<div\\sclass=\"[^\"]+\"\\sdata-g-id=\"description\">(.+?)(?:<br>|</div>)",
+    "description_pattern": "<div\\sclass=\"[^\"]+\"\\sdata-g-id=\"description\">(.+?)</div>",
+    "screenshot_pattern": "<div\\sjscontroller=\"RQJprf\"\\sclass=\"Atcj9b\"><img\\ssrc=\"([^\"]+)=w[0-9]+-h[0-9]+\"",
+    "icon_pattern": "<div\\sclass=\"l8YSdd\"><img\\ssrc=\"(.+?=s)[0-9]",
+    "icon_pattern_alt": "<div\\sclass=\"Mqg6jb\\sMhrnjf\"><img\\ssrc=\"(.+?=w)",
+    "gitlab_repo_id_pattern": "<span\\sclass=\"gl-sr-only\"\\sdata-testid=\"project-id-content\"\\sitemprop=\"identifier\">\n*Project\\sID:\\s([0-9]+)\n*</span>"
   }
 }
