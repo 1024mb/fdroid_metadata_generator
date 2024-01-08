@@ -1177,31 +1177,30 @@ def get_icon(resp_int: str, package: str, new_package: str, version_code: int | 
 def sanitize_lang(lang: str):
     lang = lang.strip().lower()
 
-    match lang:
-        case "es":
-            lang = "es-Es"
-        case "419":
-            lang = "es-419"
-        case "en":
-            lang = "en-US"
-        case "us":
-            lang = "en-US"
-        case "pt":
-            lang = "pt-PT"
-        case "fr":
-            lang = "fr-FR"
-        case "zh":
-            lang = "zh-CN"
-        case "br":
-            lang = "pt-BR"
-        case "gb":
-            lang = "en-GB"
-        case "ca":
-            lang = "fr-CA"
-        case "hk":
-            lang = "zh-HK"
-        case "tw":
-            lang = "zh-TW"
+    if lang == "es":
+        lang = "es-Es"
+    elif lang == "419":
+        lang = "es-419"
+    elif lang == "en":
+        lang = "en-US"
+    elif lang == "us":
+        lang = "en-US"
+    elif lang == "pt":
+        lang = "pt-PT"
+    elif lang == "fr":
+        lang = "fr-FR"
+    elif lang == "zh":
+        lang = "zh-CN"
+    elif lang == "br":
+        lang = "pt-BR"
+    elif lang == "gb":
+        lang = "en-GB"
+    elif lang == "ca":
+        lang = "fr-CA"
+    elif lang == "hk":
+        lang = "zh-HK"
+    elif lang == "tw":
+        lang = "zh-TW"
 
     return lang
 
