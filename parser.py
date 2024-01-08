@@ -437,61 +437,6 @@ def map_apk_to_packagename(repo_dir: str) -> Dict:
     return mapped_apk_files
 
 
-def is_metadata_complete(package_content: Dict) -> bool:
-    if (package_content.get("AuthorName") is None or package_content.get("WebSite") is None
-            or package_content.get("Categories") is None or package_content.get("Name") is None
-            or package_content.get("Summary") is None or package_content.get("Description") is None
-            or package_content.get("AuthorEmail") is None or package_content.get("AntiFeatures") is None
-            or package_content.get("CurrentVersionCode") is None or package_content.get("CurrentVersion") is None
-            or package_content.get("License") is None):
-        return False
-    if (package_content.get("AuthorName", "") != "" and package_content.get("WebSite", "") != ""
-            and package_content.get("Categories", "") != "" and package_content.get("Categories", "") != ["fdroid_repo"]
-            and package_content.get("Name", "") != "" and package_content.get("Summary", "") != ""
-            and package_content.get("Description", "") != "" and package_content.get("AuthorEmail", "") != ""
-            and package_content.get("AntiFeatures", "") != "" and package_content.get("CurrentVersionCode", "") != ""
-            and package_content.get("CurrentVersion", "") != "" and package_content.get("CurrentVersionCode", "") != 0
-            and package_content.get("CurrentVersion", "") != "" and package_content.get("License", "") != "0"
-            and package_content.get("CurrentVersionCode", "") != 2147483647
-            and package_content.get("License", "") != "Unknown"):
-        return True
-    else:
-        return False
-
-
-def is_icon_complete(package: str, version_code: int | None, repo_dir: str, data_file_content: dict) -> bool:
-    if version_code is None:
-        return True
-
-    filename = package + "." + str(version_code) + ".png"
-
-    icon_relations = {}
-
-    for key in data_file_content["Icon_Relations"].keys():
-        icon_relations[key] = False
-
-    for dirname in icon_relations.keys():
-        icon_path = os.path.join(repo_dir, dirname, filename)
-        if os.path.exists(icon_path):
-            icon_relations[dirname] = True
-
-    if all(icon_relations.values()):
-        return True
-    else:
-        return False
-
-
-def screenshot_exist(package: str, repo_dir: str) -> bool:
-    screenshots_path = os.path.join(repo_dir, package, "en-US", "phoneScreenshots")
-
-    if not os.path.exists(screenshots_path):
-        return False
-    elif len(os.listdir(screenshots_path)) > 0:
-        return True
-    else:
-        return False
-
-
 def get_version(package_content: Dict, package_and_version: Dict,
                 new_package: str, force: bool, force_version: bool) -> None:
     if (package_content.get("CurrentVersionCode", "") == "" or package_content.get("CurrentVersionCode", "") == 0
@@ -799,6 +744,32 @@ def get_categories(package_content: dict, category_pattern: str, resp_int: str, 
             category_not_found_packages.append(package)
 
 
+def extract_categories(ret_grp: re.Match, resp_int: str, data_file_content: dict):
+    cat_list = []
+
+    for cat in ret_grp.groups():
+        if html.unescape(cat.strip()) == "Sports":
+            if resp_int.find("href=\"/store/apps/category/GAME_SPORTS\""):
+                cat_list.append(data_file_content["Game_Categories"][html.unescape(cat.strip())])
+            elif data_file_content["App_Categories"][html.unescape(cat.strip())] != "":
+                cat_list.append(data_file_content["App_Categories"][html.unescape(cat.strip())])
+            else:
+                cat_list.append(html.unescape(cat.strip()))
+            continue
+
+        if cat.strip() != "" and html.unescape(cat.strip()) in data_file_content["Game_Categories"].keys():
+            cat_list.append(data_file_content["Game_Categories"][html.unescape(cat.strip())])
+            continue
+
+        if cat.strip() != "" and html.unescape(cat.strip()) in data_file_content["App_Categories"].keys():
+            if data_file_content["App_Categories"][html.unescape(cat.strip())] != "":
+                cat_list.append(data_file_content["App_Categories"][html.unescape(cat.strip())])
+            else:
+                cat_list.append(html.unescape(cat.strip()))
+
+    return cat_list
+
+
 def get_repo_info_and_license(package_content: dict, gitlab_repo_id_pattern: str, website: str,
                               data_file_content: dict, force: bool) -> None:
     if "https://github.com/" in website or "http://github.com/" in website:
@@ -922,17 +893,6 @@ def get_play_store_page(playstore_url_comp: str, playstore_url_comp_int: str, pa
     return True
 
 
-def write_yml(metadata_dir: str, package: str, package_content: Dict) -> bool:
-    try:
-        stream = open(os.path.join(metadata_dir, package + ".yml"), "w", encoding="utf_8")
-        yaml.dump(package_content, stream, Dumper=Dumper, allow_unicode=True, encoding="utf_8")
-        stream.close()
-        return True
-    except PermissionError:
-        red("\tERROR: Couldn't write YML file for %s. Permission denied.\n" % package)
-        return False
-
-
 def get_summary(resp: str, package_content: dict, pattern: str) -> bool:
     try:
         summary = html.unescape(re.search(pattern, resp).group(1)).strip()
@@ -948,24 +908,6 @@ def get_summary(resp: str, package_content: dict, pattern: str) -> bool:
         return True
     except (IndexError, AttributeError):
         return False
-
-
-def write_not_found_log(items: list, file_name: str) -> None:
-    today_date = datetime.today().strftime("%Y%m%d_%H%M%S")
-    file_name = os.path.join(Path(__file__).resolve().parent, file_name + "_" + today_date + ".log")
-
-    try:
-        log_stream = open(file_name, "w")
-    except IOError as e:
-        red(e)
-        return
-
-    for item in items:
-        try:
-            log_stream.write(item + "\n")
-        except IOError as e:
-            red(e)
-            return
 
 
 def get_license(package_content: dict, force: bool, api_repo: str, data_file_content: dict):
@@ -1151,32 +1093,6 @@ def get_icon(resp_int: str, package: str, new_package: str, version_code: int | 
                 yellow("\tCouldn't write icon file for %s. Permission denied." % dirname)
 
 
-def extract_categories(ret_grp: re.Match, resp_int: str, data_file_content: dict):
-    cat_list = []
-
-    for cat in ret_grp.groups():
-        if html.unescape(cat.strip()) == "Sports":
-            if resp_int.find("href=\"/store/apps/category/GAME_SPORTS\""):
-                cat_list.append(data_file_content["Game_Categories"][html.unescape(cat.strip())])
-            elif data_file_content["App_Categories"][html.unescape(cat.strip())] != "":
-                cat_list.append(data_file_content["App_Categories"][html.unescape(cat.strip())])
-            else:
-                cat_list.append(html.unescape(cat.strip()))
-            continue
-
-        if cat.strip() != "" and html.unescape(cat.strip()) in data_file_content["Game_Categories"].keys():
-            cat_list.append(data_file_content["Game_Categories"][html.unescape(cat.strip())])
-            continue
-
-        if cat.strip() != "" and html.unescape(cat.strip()) in data_file_content["App_Categories"].keys():
-            if data_file_content["App_Categories"][html.unescape(cat.strip())] != "":
-                cat_list.append(data_file_content["App_Categories"][html.unescape(cat.strip())])
-            else:
-                cat_list.append(html.unescape(cat.strip()))
-
-    return cat_list
-
-
 def sanitize_lang(lang: str):
     lang = lang.strip().lower()
 
@@ -1207,6 +1123,90 @@ def sanitize_lang(lang: str):
             lang = "zh-TW"
 
     return lang
+
+
+def is_metadata_complete(package_content: Dict) -> bool:
+    if (package_content.get("AuthorName") is None or package_content.get("WebSite") is None
+            or package_content.get("Categories") is None or package_content.get("Name") is None
+            or package_content.get("Summary") is None or package_content.get("Description") is None
+            or package_content.get("AuthorEmail") is None or package_content.get("AntiFeatures") is None
+            or package_content.get("CurrentVersionCode") is None or package_content.get("CurrentVersion") is None
+            or package_content.get("License") is None):
+        return False
+    if (package_content.get("AuthorName", "") != "" and package_content.get("WebSite", "") != ""
+            and package_content.get("Categories", "") != "" and package_content.get("Categories", "") != ["fdroid_repo"]
+            and package_content.get("Name", "") != "" and package_content.get("Summary", "") != ""
+            and package_content.get("Description", "") != "" and package_content.get("AuthorEmail", "") != ""
+            and package_content.get("AntiFeatures", "") != "" and package_content.get("CurrentVersionCode", "") != ""
+            and package_content.get("CurrentVersion", "") != "" and package_content.get("CurrentVersionCode", "") != 0
+            and package_content.get("CurrentVersion", "") != "" and package_content.get("License", "") != "0"
+            and package_content.get("CurrentVersionCode", "") != 2147483647
+            and package_content.get("License", "") != "Unknown"):
+        return True
+    else:
+        return False
+
+
+def is_icon_complete(package: str, version_code: int | None, repo_dir: str, data_file_content: dict) -> bool:
+    if version_code is None:
+        return True
+
+    filename = package + "." + str(version_code) + ".png"
+
+    icon_relations = {}
+
+    for key in data_file_content["Icon_Relations"].keys():
+        icon_relations[key] = False
+
+    for dirname in icon_relations.keys():
+        icon_path = os.path.join(repo_dir, dirname, filename)
+        if os.path.exists(icon_path):
+            icon_relations[dirname] = True
+
+    if all(icon_relations.values()):
+        return True
+    else:
+        return False
+
+
+def screenshot_exist(package: str, repo_dir: str) -> bool:
+    screenshots_path = os.path.join(repo_dir, package, "en-US", "phoneScreenshots")
+
+    if not os.path.exists(screenshots_path):
+        return False
+    elif len(os.listdir(screenshots_path)) > 0:
+        return True
+    else:
+        return False
+
+
+def write_yml(metadata_dir: str, package: str, package_content: Dict) -> bool:
+    try:
+        stream = open(os.path.join(metadata_dir, package + ".yml"), "w", encoding="utf_8")
+        yaml.dump(package_content, stream, Dumper=Dumper, allow_unicode=True, encoding="utf_8")
+        stream.close()
+        return True
+    except PermissionError:
+        red("\tERROR: Couldn't write YML file for %s. Permission denied.\n" % package)
+        return False
+
+
+def write_not_found_log(items: list, file_name: str) -> None:
+    today_date = datetime.today().strftime("%Y%m%d_%H%M%S")
+    file_name = os.path.join(Path(__file__).resolve().parent, file_name + "_" + today_date + ".log")
+
+    try:
+        log_stream = open(file_name, "w")
+    except IOError as e:
+        red(e)
+        return
+
+    for item in items:
+        try:
+            log_stream.write(item + "\n")
+        except IOError as e:
+            red(e)
+            return
 
 
 if __name__ == "__main__":
