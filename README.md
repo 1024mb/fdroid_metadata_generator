@@ -14,7 +14,8 @@ Usage:
 -------------------------
 
 ```console
-usage: parser.py [-h] [-m METADATA_DIR] [-r REPO_DIR] -l LANGUAGE [-f] [-fv] [-ca] [-kf KEY_FILE] [-cf CERT_FILE] [-cpw CERTIFICATE_PASSWORD] [-btp BUILD_TOOLS_PATH] [-aep APK_EDITOR_PATH] [-dls]
+usage: parser.py [-h] [-m METADATA_DIR] [-r REPO_DIR] -l LANGUAGE [-f] [-fv] [-fs] [-fi] [-fa] [-ca] [-kf KEY_FILE]
+                 [-cf CERT_FILE] [-cpw CERTIFICATE_PASSWORD] [-btp BUILD_TOOLS_PATH] [-aep APK_EDITOR_PATH] [-dls]
                  [-df DATA_FILE] [-rf REPLACEMENT_FILE]
 
 Parser for PlayStore information to F-Droid YML metadata files.
@@ -27,8 +28,12 @@ options:
                         Directory where F-Droid repo files are stored.
   -l LANGUAGE, --language LANGUAGE
                         Language of the information to retrieve.
-  -f, --force           Force parsing of information and overwrite existing metadata.
+  -f, --force-metadata  Force overwrite existing metadata.
   -fv, --force-version  Force updating version name and code even if they are already specified in the YML file.
+  -fs, --force-screenshots
+                        Force overwrite existing screenshots.
+  -fi, --force-icons    Force overwrite existing icons.
+  -fa, --force-all      Force overwrite existing metadata, screenshots and icons.
   -ca, --convert-apks   Convert APKS files to APK and sign them.
   -kf KEY_FILE, --key-file KEY_FILE
                         Key file used to sign the APK, required if --convert-apks is used.
@@ -45,7 +50,7 @@ options:
   -df DATA_FILE, --data-file DATA_FILE
                         Path to the JSON formatted data file. Defaults to data.json located in the program directory.
   -rf REPLACEMENT_FILE, --replacement-file REPLACEMENT_FILE
-                        JSON formatted file containing a dict with replacements for the package name of all found apps.
+                        JSON formatted file containing a dict with replacements for the package name of all found
 ```
 
 Explanation
@@ -60,9 +65,12 @@ This program:
 
 By default no data will be overwritten except for empty/dummy values.
 
-You can force overwriting existing data (including icons and screenshots) with `-f/--force` or overwrite only the
-version numbers in the YML files with `-fv/--force-version`. If `-f`/`--force` is used and screenshots already exist
-they will be moved to a backup directory in `/repo/backup`. The deletion of the backup files is up to the user (you).
+You can force overwriting all existing data (metadata, icons and screenshots) with `-fa`/`--force-all`, overwrite
+existing metadata with `-f/--force`, overwrite only the
+version numbers in the YML files with `-fv/--force-version`, overwrite the icons with `-fi`/`--force-icons` or overwrite
+the screenshots with `-fs`/`--foce-screenshots`. If `-fs`/`--foce-screenshots`/`-fa`/`--force-all` is used and
+screenshots already exist they will be moved to a backup directory in `/repo/backup`. The deletion of the backup files
+is up to the user (you).
 
 If the provided paths for the corresponding option don't end in `metadata` or `repo` the program will terminate.
 
@@ -103,6 +111,9 @@ The license extraction is done this way:
    will be used.
 3. If the app's website is not a repository "Copyright" will be assumed.
 
+Packages not found and packages that had any data not found will be writen to a log file located in the same path than
+the program. They are also printed at the end.
+
 -------------------------
 
 Don't forget to run these two commands after all the download is completed:
@@ -129,6 +140,8 @@ The contents are as follows:
   the [official documentation][3].
 * **Icon_Relations**: Dict containing the relation between the directory name (key/left) and the icon size (
   value/right). Icons are squares so only the one number is needed.
+* **Regex_Patterns**: Dict containing the regex search patterns for data extraction: key/left is name of pattern,
+  value/right is the pattern.
 
 The default path for the data file is `<path-to-this-program>/data.json`, other path can be specified
 using `-df`/`--data-file`.
