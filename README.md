@@ -1,6 +1,6 @@
 ## This program extracts information from the Play Store and stores it in a YML file for F-Droid Server.
 
-Python version required is 3.10+.
+Python version required is 3.9+.
 
 Dependencies
 -------------------------
