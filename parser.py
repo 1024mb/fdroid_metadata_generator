@@ -71,11 +71,15 @@ def main():
                         action="store_true")
     parser.add_argument("-df", "--data-file",
                         help="Path to the JSON formatted data file. "
-                             "Defaults to data.json located in the program directory.",
+                             "Default: data.json located in the program directory.",
                         default=os.path.join(Path(__file__).resolve().parent, "data.json"))
     parser.add_argument("-rf", "--replacement-file",
                         help="JSON formatted file containing a dict with replacements for the package name of all found"
                              " apps.")
+    parser.add_argument("-lp", "--log-path",
+                        help="Path to the directory where to store the log files. Default: Program directory.",
+                        default=[str(Path(__file__).resolve().parent)],
+                        nargs=1)
 
     args = parser.parse_args()
 
@@ -196,6 +200,11 @@ def main():
         red("ERROR: Please provide the key and certificate files for APKS conversion.\n")
         exit(1)
 
+    log_path = args.log_path[0]
+    if not os.path.exists(log_path) or not os.path.isdir(log_path):
+        red("Invalid log path.")
+        exit(1)
+
     package_list = {}
     package_and_version = {}
 
@@ -256,7 +265,7 @@ def main():
         retrieve_info(package_list=package_list, package_and_version=package_and_version, lang=lang,
                       metadata_dir=metadata_dir, repo_dir=repo_dir, force_metadata=force_metadata,
                       force_version=force_version, force_screenshots=force_screenshots, force_icons=force_icons,
-                      dl_screenshots=args.download_screenshots, data_file_content=data_file_content)
+                      dl_screenshots=args.download_screenshots, data_file_content=data_file_content, log_path=log_path)
     elif "repo_dir" in locals():
         if not os.path.isdir(repo_dir):
             red("ERROR: Invalid repo directory, supplied path is not a directory")
@@ -292,13 +301,14 @@ def main():
         retrieve_info(package_list=package_list, package_and_version=package_and_version, lang=lang,
                       metadata_dir=metadata_dir, repo_dir=repo_dir, force_metadata=force_metadata,
                       force_version=force_version, force_screenshots=force_screenshots, force_icons=force_icons,
-                      dl_screenshots=args.download_screenshots, data_file_content=data_file_content)
+                      dl_screenshots=args.download_screenshots, data_file_content=data_file_content, log_path=log_path)
     else:
         red("ERROR: We shouldn't have got here.")
         exit(1)
 
 
-def get_new_packagename(replacement_file: str | None, base_name: str) -> str | None:
+def get_new_packagename(replacement_file: str | None,
+                        base_name: str) -> str | None:
     if replacement_file is not None:
         try:
             replace_stream = open(os.path.abspath(replacement_file), encoding="utf_8", mode="r")
@@ -354,8 +364,12 @@ def check_data_file(data_file_content) -> bool:
     return True
 
 
-def convert_apks(key_file: str, cert_file: str, password: List[str] | None, repo_dir: str,
-                 build_tools_path: List[str] | None, apk_editor_path: str):
+def convert_apks(key_file: str,
+                 cert_file: str,
+                 password: List[str] | None,
+                 repo_dir: str,
+                 build_tools_path: List[str] | None,
+                 apk_editor_path: str):
     green("Starting APKS conversion...\n")
 
     if platform.system() == "Windows":
@@ -462,8 +476,11 @@ def map_apk_to_packagename(repo_dir: str) -> Dict:
     return mapped_apk_files
 
 
-def get_version(package_content: Dict, package_and_version: Dict,
-                new_package: str, force_metadata: bool, force_version: bool) -> None:
+def get_version(package_content: Dict,
+                package_and_version: Dict,
+                new_package: str,
+                force_metadata: bool,
+                force_version: bool) -> None:
     if (package_content.get("CurrentVersionCode", "") == "" or package_content.get("CurrentVersionCode", "") == 0
             or package_content.get("CurrentVersionCode", "") == 2147483647
             or package_content.get("CurrentVersionCode") is None or force_metadata or force_version):
@@ -480,9 +497,18 @@ def get_version(package_content: Dict, package_and_version: Dict,
             package_content["CurrentVersion"] = "0"
 
 
-def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, Tuple[int, str]], lang: str,
-                  metadata_dir: str, repo_dir: str, force_metadata: bool, force_version: bool, force_screenshots: bool,
-                  force_icons: bool, dl_screenshots: bool, data_file_content: dict):
+def retrieve_info(package_list: Dict[str, str],
+                  package_and_version: Dict[str, Tuple[int, str]],
+                  lang: str,
+                  metadata_dir: str,
+                  repo_dir: str,
+                  force_metadata: bool,
+                  force_version: bool,
+                  force_screenshots: bool,
+                  force_icons: bool,
+                  dl_screenshots: bool,
+                  data_file_content: dict,
+                  log_path: str):
     playstore_url = "https://play.google.com/store/apps/details?id="
 
     proc = False
@@ -645,67 +671,78 @@ def retrieve_info(package_list: Dict[str, str], package_and_version: Dict[str, T
         yellow("\nThese packages weren't found on the Play Store:\n")
         for item in not_found_packages:
             yellow(item)
-        write_not_found_log(not_found_packages, "NotFound_Package")
+        write_not_found_log(items=not_found_packages, file_name="NotFound_Package", log_path=log_path)
 
     if len(authorname_not_found_packages) != 0:
         yellow("\nThe AuthorName for these packages wasn't found on the Play Store:\n")
         for item in authorname_not_found_packages:
             yellow(item)
-        write_not_found_log(authorname_not_found_packages, "NotFound_AuthorName")
+        write_not_found_log(items=authorname_not_found_packages, file_name="NotFound_AuthorName", log_path=log_path)
 
     if len(authoremail_not_found_packages) != 0:
         yellow("\nThe AuthorName for these packages wasn't found on the Play Store:\n")
         for item in authoremail_not_found_packages:
             yellow(item)
-        write_not_found_log(authoremail_not_found_packages, "NotFound_AuthorEmail")
+        write_not_found_log(items=authoremail_not_found_packages, file_name="NotFound_AuthorEmail", log_path=log_path)
 
     if len(website_not_found_packages) != 0:
         yellow("\nThe Website for these packages wasn't found on the Play Store:\n")
         for item in website_not_found_packages:
             yellow(item)
-        write_not_found_log(website_not_found_packages, "NotFound_Website")
+        write_not_found_log(items=website_not_found_packages, file_name="NotFound_Website", log_path=log_path)
 
     if len(summary_not_found_packages) != 0:
         yellow("\nThe Summary for these packages wasn't found on the Play Store:\n")
         for item in summary_not_found_packages:
             yellow(item)
-        write_not_found_log(summary_not_found_packages, "NotFound_Summary")
+        write_not_found_log(items=summary_not_found_packages, file_name="NotFound_Summary", log_path=log_path)
 
     if len(description_not_found_packages) != 0:
         yellow("\nThe Description for these packages wasn't found on the Play Store:\n")
         for item in description_not_found_packages:
             yellow(item)
-        write_not_found_log(description_not_found_packages, "NotFound_Description")
+        write_not_found_log(items=description_not_found_packages, file_name="NotFound_Description", log_path=log_path)
 
     if len(category_not_found_packages) != 0:
         yellow("\nThe Category for these packages wasn't found on the Play Store:\n")
         for item in category_not_found_packages:
             yellow(item)
-        write_not_found_log(category_not_found_packages, "NotFound_Category")
+        write_not_found_log(items=category_not_found_packages, file_name="NotFound_Category", log_path=log_path)
 
     if len(name_not_found_packages) != 0:
         yellow("\nThe Name for these packages wasn't found on the Play Store:\n")
         for item in name_not_found_packages:
             yellow(item)
-        write_not_found_log(name_not_found_packages, "NotFound_Name")
+        write_not_found_log(items=name_not_found_packages, file_name="NotFound_Name", log_path=log_path)
 
     if len(icon_not_found_packages) != 0:
         yellow("\nThe icon URL for these packages wasn't found on the Play Store:\n")
         for item in icon_not_found_packages:
             yellow(item)
-        write_not_found_log(icon_not_found_packages, "NotFound_IconURL")
+        write_not_found_log(items=icon_not_found_packages, file_name="NotFound_IconURL", log_path=log_path)
 
     if len(screenshots_not_found_packages) != 0:
         yellow("\nThe screenshots URL for these packages weren't found on the Play Store:\n")
         for item in screenshots_not_found_packages:
             yellow(item)
-        write_not_found_log(screenshots_not_found_packages, "NotFound_ScreenshotsURL")
+        write_not_found_log(items=screenshots_not_found_packages,
+                            file_name="NotFound_ScreenshotsURL",
+                            log_path=log_path)
 
 
-def get_metadata(package_content: dict, resp: str, resp_int: str, package: str, name_not_found_packages: list,
-                 authorname_not_found_packages: list, authoremail_not_found_packages: list,
-                 website_not_found_packages: list, category_not_found_packages: list, summary_not_found_packages: list,
-                 description_not_found_packages: list, force_metadata: bool, data_file_content: dict) -> None:
+def get_metadata(package_content: dict,
+                 resp: str,
+                 resp_int: str,
+                 package: str,
+                 name_not_found_packages: list,
+                 authorname_not_found_packages: list,
+                 authoremail_not_found_packages: list,
+                 website_not_found_packages: list,
+                 category_not_found_packages: list,
+                 summary_not_found_packages: list,
+                 description_not_found_packages: list,
+                 force_metadata: bool,
+                 data_file_content: dict) -> None:
     author_name_pattern = data_file_content["Regex_Patterns"]["author_name_pattern"]
     author_email_pattern = data_file_content["Regex_Patterns"]["author_email_pattern"]
     name_pattern = data_file_content["Regex_Patterns"]["name_pattern"]
@@ -744,7 +781,10 @@ def get_metadata(package_content: dict, resp: str, resp_int: str, package: str, 
     get_anti_features(package_content, website, resp_int, force_metadata)
 
 
-def get_anti_features(package_content: dict, website: str, resp_int: str, force_metadata: bool) -> None:
+def get_anti_features(package_content: dict,
+                      website: str,
+                      resp_int: str,
+                      force_metadata: bool) -> None:
     if (package_content.get("AntiFeatures", "") == "" or package_content.get("AntiFeatures") is None
             or None in package_content.get("AntiFeatures") or force_metadata):
         if ("github.com/" or "gitlab.com/") in website:
@@ -766,8 +806,12 @@ def get_anti_features(package_content: dict, website: str, resp_int: str, force_
         package_content["AntiFeatures"] = anti_features
 
 
-def get_author_email(package_content: dict, author_email_pattern: str, resp: str, package: str,
-                     authoremail_not_found_packages: list, force_metadata: bool) -> None:
+def get_author_email(package_content: dict,
+                     author_email_pattern: str,
+                     resp: str,
+                     package: str,
+                     authoremail_not_found_packages: list,
+                     force_metadata: bool) -> None:
     if package_content.get("AuthorEmail", "") == "" or package_content.get("AuthorEmail") is None or force_metadata:
         try:
             email_grps = re.findall(author_email_pattern, resp)
@@ -783,8 +827,12 @@ def get_author_email(package_content: dict, author_email_pattern: str, resp: str
             authoremail_not_found_packages.append(package)
 
 
-def get_description(package_content: dict, description_pattern: str, resp: str, package: str,
-                    description_not_found_packages: list, force_metadata: bool) -> None:
+def get_description(package_content: dict,
+                    description_pattern: str,
+                    resp: str,
+                    package: str,
+                    description_not_found_packages: list,
+                    force_metadata: bool) -> None:
     if package_content.get("Description", "") == "" or package_content.get("Description") is None or force_metadata:
         try:
             package_content["Description"] = html.unescape(
@@ -794,8 +842,12 @@ def get_description(package_content: dict, description_pattern: str, resp: str, 
             description_not_found_packages.append(package)
 
 
-def get_name(package_content: dict, name_pattern: str, resp: str, package: str,
-             name_not_found_packages: list, force_metadata: bool) -> None:
+def get_name(package_content: dict,
+             name_pattern: str,
+             resp: str,
+             package: str,
+             name_not_found_packages: list,
+             force_metadata: bool) -> None:
     if package_content.get("Name", "") == "" or package_content.get("Name") is None or force_metadata:
         try:
             package_content["Name"] = html.unescape(re.search(name_pattern, resp).group(1)).strip()
@@ -804,8 +856,13 @@ def get_name(package_content: dict, name_pattern: str, resp: str, package: str,
             name_not_found_packages.append(package)
 
 
-def get_categories(package_content: dict, category_pattern: str, resp_int: str, package: str,
-                   category_not_found_packages: list, data_file_content: dict, force_metadata: bool) -> None:
+def get_categories(package_content: dict,
+                   category_pattern: str,
+                   resp_int: str,
+                   package: str,
+                   category_not_found_packages: list,
+                   data_file_content: dict,
+                   force_metadata: bool) -> None:
     if (package_content.get("Categories", "") == "" or
             package_content.get("Categories", "") == ["fdroid_repo"] or
             package_content.get("Categories") is None or
@@ -820,7 +877,9 @@ def get_categories(package_content: dict, category_pattern: str, resp_int: str, 
             category_not_found_packages.append(package)
 
 
-def extract_categories(ret_grp: re.Match, resp_int: str, data_file_content: dict):
+def extract_categories(ret_grp: re.Match,
+                       resp_int: str,
+                       data_file_content: dict):
     cat_list = []
 
     for cat in ret_grp.groups():
@@ -846,8 +905,11 @@ def extract_categories(ret_grp: re.Match, resp_int: str, data_file_content: dict
     return cat_list
 
 
-def get_repo_info_and_license(package_content: dict, gitlab_repo_id_pattern: str, website: str,
-                              data_file_content: dict, force_metadata: bool) -> None:
+def get_repo_info_and_license(package_content: dict,
+                              gitlab_repo_id_pattern: str,
+                              website: str,
+                              data_file_content: dict,
+                              force_metadata: bool) -> None:
     if "https://github.com/" in website or "http://github.com/" in website:
         repo = re.sub(r"(https?)(://github.com/[^/]+/[^/]+).*", r"https\2", website)
         api_repo = re.sub(r"(https?)(://github.com/)([^/]+/[^/]+).*",
@@ -895,7 +957,11 @@ def get_repo_info_and_license(package_content: dict, gitlab_repo_id_pattern: str
         package_content["License"] = "Copyright"
 
 
-def get_website(package_content: dict, website_pattern: str, resp: str, package: str, website_not_found_packages: list,
+def get_website(package_content: dict,
+                website_pattern: str,
+                resp: str,
+                package: str,
+                website_not_found_packages: list,
                 force_metadata: bool) -> str:
     website = ""
 
@@ -912,8 +978,12 @@ def get_website(package_content: dict, website_pattern: str, resp: str, package:
     return website
 
 
-def get_author_name(package_content: dict, author_name_pattern: str, resp: str, package: str,
-                    authorname_not_found_packages: list, force_metadata: bool) -> None:
+def get_author_name(package_content: dict,
+                    author_name_pattern: str,
+                    resp: str,
+                    package: str,
+                    authorname_not_found_packages: list,
+                    force_metadata: bool) -> None:
     try:
         if package_content.get("AuthorName", "") == "" or package_content.get("AuthorName") is None or force_metadata:
             package_content["AuthorName"] = html.unescape(re.search(author_name_pattern, resp).group(1)).strip()
@@ -922,9 +992,17 @@ def get_author_name(package_content: dict, author_name_pattern: str, resp: str, 
         authorname_not_found_packages.append(package)
 
 
-def get_play_store_page(playstore_url_comp: str, playstore_url_comp_int: str, package: str, new_package: str,
-                        resp_list: list, not_found_packages: list, package_content: dict, force_metadata: bool,
-                        force_version: bool, package_and_version: dict, metadata_dir: str) -> bool:
+def get_play_store_page(playstore_url_comp: str,
+                        playstore_url_comp_int: str,
+                        package: str,
+                        new_package: str,
+                        resp_list: list,
+                        not_found_packages: list,
+                        package_content: dict,
+                        force_metadata: bool,
+                        force_version: bool,
+                        package_and_version: dict,
+                        metadata_dir: str) -> bool:
     try:
         resp_list.append(urllib.request.urlopen(playstore_url_comp).read().decode())
     except HTTPError as e:
@@ -969,7 +1047,9 @@ def get_play_store_page(playstore_url_comp: str, playstore_url_comp_int: str, pa
     return True
 
 
-def get_summary(resp: str, package_content: dict, pattern: str) -> bool:
+def get_summary(resp: str,
+                package_content: dict,
+                pattern: str) -> bool:
     try:
         summary = html.unescape(re.search(pattern, resp).group(1)).strip()
         summary = re.sub(r"(<[^>]+>)", "", summary)
@@ -986,7 +1066,10 @@ def get_summary(resp: str, package_content: dict, pattern: str) -> bool:
         return False
 
 
-def get_license(package_content: dict, force_metadata: bool, api_repo: str, data_file_content: dict):
+def get_license(package_content: dict,
+                force_metadata: bool,
+                api_repo: str,
+                data_file_content: dict):
     if (package_content.get("License", "") == "" or package_content.get("License", "") == "Unknown"
             or package_content.get("License") is None or force_metadata):
         try:
@@ -1007,7 +1090,8 @@ def get_license(package_content: dict, force_metadata: bool, api_repo: str, data
             package_content["License"] = "No License"
 
 
-def normalize_license(data_file_content: dict, license_key: str) -> str:
+def normalize_license(data_file_content: dict,
+                      license_key: str) -> str:
     license_dict = {}
     for key in data_file_content["Licenses"]:
         license_dict[key.lower().strip()] = key
@@ -1020,8 +1104,13 @@ def normalize_license(data_file_content: dict, license_key: str) -> str:
         return "Other"
 
 
-def get_screenshots(resp: str, repo_dir: str, package: str, new_package: str,
-                    screenshots_not_found_packages: list, data_file_content: dict, screenshots_exist: bool) -> None:
+def get_screenshots(resp: str,
+                    repo_dir: str,
+                    package: str,
+                    new_package: str,
+                    screenshots_not_found_packages: list,
+                    data_file_content: dict,
+                    screenshots_exist: bool) -> None:
     # Locale directory must be en-US and not the real locale because that's what F-Droid
     # defaults to and this program does not do multi-lang download.
     screenshots_path = os.path.join(repo_dir, package, "en-US", "phoneScreenshots")
@@ -1088,7 +1177,8 @@ def get_screenshots(resp: str, repo_dir: str, package: str, new_package: str,
     green("\tFinished downloading screenshots for %s.\n" % package)
 
 
-def extract_icon_url(resp_int: str, icon_pattern: str) -> str | None:
+def extract_icon_url(resp_int: str,
+                     icon_pattern: str) -> str | None:
     try:
         icon_base_url = re.search(icon_pattern, resp_int).group(1)
     except (IndexError, AttributeError):
@@ -1097,7 +1187,8 @@ def extract_icon_url(resp_int: str, icon_pattern: str) -> str | None:
     return icon_base_url
 
 
-def extract_icon_url_alt(resp_int: str, icon_pattern_alt: str) -> str | None:
+def extract_icon_url_alt(resp_int: str,
+                         icon_pattern_alt: str) -> str | None:
     try:
         icon_base_url_alt = re.search(icon_pattern_alt, resp_int).group(1)
     except (IndexError, AttributeError):
@@ -1106,8 +1197,14 @@ def extract_icon_url_alt(resp_int: str, icon_pattern_alt: str) -> str | None:
     return icon_base_url_alt
 
 
-def get_icon(resp_int: str, package: str, new_package: str, version_code: int | None, repo_dir: str, force_icons: bool,
-             data_file_content: dict, icon_not_found_packages: list):
+def get_icon(resp_int: str,
+             package: str,
+             new_package: str,
+             version_code: int | None,
+             repo_dir: str,
+             force_icons: bool,
+             data_file_content: dict,
+             icon_not_found_packages: list):
     if version_code is None:
         # if a metadata_dir is specified and the corresponding APK file doesn't exist in the repo dir then we can't
         # get the VersionCode needed to store the icons hence return
@@ -1240,7 +1337,10 @@ def is_metadata_complete(package_content: Dict) -> bool:
         return False
 
 
-def is_icon_complete(package: str, version_code: int | None, repo_dir: str, data_file_content: dict) -> bool:
+def is_icon_complete(package: str,
+                     version_code: int | None,
+                     repo_dir: str,
+                     data_file_content: dict) -> bool:
     if version_code is None:  # The correct filename can't be set so check for this value in parent function.
         return True
 
@@ -1262,7 +1362,8 @@ def is_icon_complete(package: str, version_code: int | None, repo_dir: str, data
         return False
 
 
-def screenshot_exist(package: str, repo_dir: str) -> bool:
+def screenshot_exist(package: str,
+                     repo_dir: str) -> bool:
     screenshots_path = os.path.join(repo_dir, package, "en-US", "phoneScreenshots")
 
     if not os.path.exists(screenshots_path):
@@ -1273,7 +1374,9 @@ def screenshot_exist(package: str, repo_dir: str) -> bool:
         return False
 
 
-def write_yml(metadata_dir: str, package: str, package_content: Dict) -> bool:
+def write_yml(metadata_dir: str,
+              package: str,
+              package_content: Dict) -> bool:
     try:
         stream = open(os.path.join(metadata_dir, package + ".yml"), "w", encoding="utf_8")
         yaml.dump(package_content, stream, Dumper=Dumper, allow_unicode=True, encoding="utf_8")
@@ -1284,9 +1387,11 @@ def write_yml(metadata_dir: str, package: str, package_content: Dict) -> bool:
         return False
 
 
-def write_not_found_log(items: list, file_name: str) -> None:
+def write_not_found_log(items: list,
+                        file_name: str,
+                        log_path: str) -> None:
     today_date = datetime.today().strftime("%Y%m%d_%H%M%S")
-    file_name = os.path.join(Path(__file__).resolve().parent, file_name + "_" + today_date + ".log")
+    file_name = os.path.join(log_path, file_name + "_" + today_date + ".log")
 
     try:
         log_stream = open(file_name, "w")
