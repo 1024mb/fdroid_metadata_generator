@@ -186,19 +186,19 @@ def main():
             red("ERROR: Invalid ApkEditor.jar path.")
             exit(1)
 
-    if args.key_file is not None and (not os.path.exists(os.path.abspath(args.key_file[0])) or not os.path.isfile(
-            os.path.abspath(args.key_file[0]))):
-        red("ERROR: Invalid key file path.")
-        exit(1)
+        if args.key_file is not None and (not os.path.exists(os.path.abspath(args.key_file[0])) or not os.path.isfile(
+                os.path.abspath(args.key_file[0]))):
+            red("ERROR: Invalid key file path.")
+            exit(1)
 
-    if args.cert_file is not None and (not os.path.exists(os.path.abspath(args.cert_file[0])) or not os.path.isfile(
-            os.path.abspath(args.cert_file[0]))):
-        red("ERROR: Invalid cert file path.")
-        exit(1)
+        if args.cert_file is not None and (not os.path.exists(os.path.abspath(args.cert_file[0])) or not os.path.isfile(
+                os.path.abspath(args.cert_file[0]))):
+            red("ERROR: Invalid cert file path.")
+            exit(1)
 
-    if args.key_file is None or args.cert_file is None:
-        red("ERROR: Please provide the key and certificate files for APKS conversion.\n")
-        exit(1)
+        if args.key_file is None or args.cert_file is None:
+            red("ERROR: Please provide the key and certificate files for APKS conversion.\n")
+            exit(1)
 
     log_path = args.log_path[0]
     if not os.path.exists(log_path) or not os.path.isdir(log_path):
