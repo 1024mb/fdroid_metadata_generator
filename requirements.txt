@@ -5,4 +5,4 @@ PyYAML~=6.0.1
 
 win32_setctime; platform_system == 'Windows'
 
-colorist~=1.7.0
+colorama~=0.4.6
