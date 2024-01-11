@@ -6,7 +6,7 @@ Dependencies
 -------------------------
 
 - [pyYAML](https://github.com/yaml/pyyaml)
-- [colorist](https://github.com/jakob-bagterp/colorist-for-python)
+- [colorama](https://github.com/tartley/colorama)
 - [win32-setctime](https://github.com/Delgan/win32-setctime) : *If on Windows*
 - [apkfile](https://github.com/david-lev/apkfile) : *Included in repo, forked to add support for aapt2.*
 
@@ -16,7 +16,7 @@ Usage:
 ```console
 usage: parser.py [-h] [-m METADATA_DIR] [-r REPO_DIR] -l LANGUAGE [-f] [-fv] [-fs] [-fi] [-fa] [-ca] [-kf KEY_FILE]
                  [-cf CERT_FILE] [-cpw CERTIFICATE_PASSWORD] [-btp BUILD_TOOLS_PATH] [-aep APK_EDITOR_PATH] [-dls]
-                 [-df DATA_FILE] [-rf REPLACEMENT_FILE]
+                 [-df DATA_FILE] [-rf REPLACEMENT_FILE] [-lp LOG_PATH]
 
 Parser for PlayStore information to F-Droid YML metadata files.
 
@@ -48,9 +48,12 @@ options:
   -dls, --download-screenshots
                         Download screenshots which will be stored in the repo directory.
   -df DATA_FILE, --data-file DATA_FILE
-                        Path to the JSON formatted data file. Defaults to data.json located in the program directory.
+                        Path to the JSON formatted data file. Default: data.json located in the program directory.
   -rf REPLACEMENT_FILE, --replacement-file REPLACEMENT_FILE
                         JSON formatted file containing a dict with replacements for the package name of all found
+                        apps.
+  -lp LOG_PATH, --log-path LOG_PATH
+                        Path to the directory where to store the log files. Default: Program directory.
 ```
 
 Explanation
@@ -111,8 +114,8 @@ The license extraction is done this way:
    will be used.
 3. If the app's website is not a repository "Copyright" will be assumed.
 
-Packages not found and packages that had any data not found will be writen to a log file located in the same path than
-the program. They are also printed at the end.
+Packages not found and packages that had any data not found will be writen to a log file located by default in the same
+path than the program, the path can be configured with `-lp`/`--log-path`. They are also printed at the end.
 
 -------------------------
 
