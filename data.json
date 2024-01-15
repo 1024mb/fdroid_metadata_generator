@@ -300,17 +300,56 @@
     "icons-640": "192"
   },
   "Regex_Patterns": {
-    "author_name_pattern": "div\\sclass=\"Vbfug\\sauoIOc\"><a\\shref[^>]+><span>(.+?)</span>",
-    "author_email_pattern": "<div\\sclass=\"xFVDSb\">.+?</div><div\\sclass=\"pSEeg\">(.+?)</div>",
-    "name_pattern": "itemprop=\"name\">(.+?)</h1>",
-    "website_pattern": "<meta\\sname=\"appstore:developer_url\"\\scontent=\"([^\"]+)\"><meta",
-    "category_pattern": "<span\\sjsname=\"V67aGc\"\\sclass=\"VfPpkd-vQzf8d\"\\saria-hidden=\"true\">([^<]+)<\/span><a\\sclass=\"WpHeLc\\sVfPpkd-mRLv6\\sVfPpkd-RLmnJb\"\\shref=\"\/store\/(?:apps\/category|search\\?)",
-    "summary_pattern": "<div\\sclass=\"[^\"]+\"\\sdata-g-id=\"description\">(.+?)<br>",
-    "summary_pattern_alt": "<div\\sclass=\"[^\"]+\"\\sdata-g-id=\"description\">(.+?)(?:<br>|</div>)",
-    "description_pattern": "<div\\sclass=\"[^\"]+\"\\sdata-g-id=\"description\">(.+?)</div>",
-    "screenshot_pattern": "<div\\sjscontroller=\"RQJprf\"\\sclass=\"Atcj9b\"><img\\ssrc=\"([^\"]+)=w[0-9]+-h[0-9]+\"",
-    "icon_pattern": "<div\\sclass=\"l8YSdd\"><img\\ssrc=\"(.+?=s)[0-9]",
-    "icon_pattern_alt": "<div\\sclass=\"Mqg6jb\\sMhrnjf\"><img\\ssrc=\"(.+?=w)",
-    "gitlab_repo_id_pattern": "<span\\sclass=\"gl-sr-only\"\\sdata-testid=\"project-id-content\"\\sitemprop=\"identifier\">\n*Project\\sID:\\s([0-9]+)\n*</span>"
+    "Template": {
+      "author_name_pattern": "",
+      "author_email_pattern": "",
+      "name_pattern": "",
+      "website_pattern": "",
+      "category_pattern": "",
+      "summary_pattern": "",
+      "summary_pattern_alt": "",
+      "description_pattern": "",
+      "screenshot_pattern": "",
+      "icon_pattern": "",
+      "icon_pattern_alt": "",
+      "gitlab_repo_id_pattern": "",
+      "ads_pattern": "",
+      "inapp_purchases_pattern": "",
+      "tracking_pattern": ""
+    },
+    "Play_Store": {
+      "author_name_pattern": "div\\sclass=\"Vbfug\\sauoIOc\"><a\\shref[^>]+><span>(.+?)</span>",
+      "author_email_pattern": "<div\\sclass=\"xFVDSb\">.+?</div><div\\sclass=\"pSEeg\">(.+?)</div>",
+      "name_pattern": "itemprop=\"name\">(.+?)</h1>",
+      "website_pattern": "<meta\\sname=\"appstore:developer_url\"\\scontent=\"([^\"]+)\"><meta",
+      "category_pattern": "<span\\sjsname=\"V67aGc\"\\sclass=\"VfPpkd-vQzf8d\"\\saria-hidden=\"true\">([^<]+)<\/span><a\\sclass=\"WpHeLc\\sVfPpkd-mRLv6\\sVfPpkd-RLmnJb\"\\shref=\"\/store\/(?:apps\/category|search\\?)",
+      "summary_pattern": "<div\\sclass=\"[^\"]+\"\\sdata-g-id=\"description\">(.+?)<br>",
+      "summary_pattern_alt": "<div\\sclass=\"[^\"]+\"\\sdata-g-id=\"description\">(.+?)(?:<br>|</div>)",
+      "description_pattern": "<div\\sclass=\"[^\"]+\"\\sdata-g-id=\"description\">(.+?)</div>",
+      "screenshot_pattern": "<div\\sjscontroller=\"RQJprf\"\\sclass=\"Atcj9b\"><img\\ssrc=\"([^\"]+)=w[0-9]+-h[0-9]+\"",
+      "icon_pattern": "<div\\sclass=\"l8YSdd\"><img\\ssrc=\"(.+?=s)[0-9]",
+      "icon_pattern_alt": "<div\\sclass=\"Mqg6jb\\sMhrnjf\"><img\\ssrc=\"(.+?=w)",
+      "gitlab_repo_id_pattern": "<span\\sclass=\"gl-sr-only\"\\sdata-testid=\"project-id-content\"\\sitemprop=\"identifier\">\n*Project\\sID:\\s([0-9]+)\n*</span>",
+      "ads_pattern": ">Contains\\sads</span>",
+      "inapp_purchases_pattern": ">In-app\\spurchases</span>",
+      "tracking_pattern": "(<div>This app may share these data types with third parties<div|<div>This app may collect these data types<div)"
+    },
+    "Amazon_Store": {
+      "author_name_pattern": "<a\\sid=\"brand\"\\sclass=\"[^\"]+\"\\shref=\"[^\"]+\">(.+?)</a>",
+      "author_email_pattern": "<ul\\sclass=\"a-unordered-list a-vertical a-spacing-none\">\\s+<li><span\\sclass=\"a-list-item\">\\s+<a\\sclass=\"a-link-normal\"\\shref=\"[^\"]+\">\\s+(.+)\\s+</a>",
+      "name_pattern": "<h1\\sid=\"mas-atf-product-title-revamp\"\\sclass=\"parseasinTitle\">\\s+<span\\sid=\"btAsinTitle\">\\s+<span\\stitle=\"(.+)\">",
+      "website_pattern": "<li><span class=\"a-list-item\">\\s+<a class=\"a-link-normal\" target=\"_blank\" rel=\"noopener\" href=\".+?\">\\s+(https?.+)",
+      "category_pattern": "",
+      "summary_pattern": "<div\\sid=\"mas-product-description\"\\sclass=\"a-section\\sa-spacing-small\\sbucket\">\\s+<h2>.+?</h2>\\s+([^\\.!?:]+.).+\\s*</div>",
+      "summary_pattern_alt": "",
+      "description_pattern": "<div\\sid=\"mas-product-description\"\\sclass=\"a-section\\sa-spacing-small\\sbucket\">\\s+<h2>.+?</h2>\\s+(.+?)\\s*</div>",
+      "screenshot_pattern": "<li\\s+class=\"a-carousel-card\\s+masrw-screenshot-card\"\\s+style=\"height:[0-9]+px;\\s+\"\\s+role=\"listitem\"\\s+aria-setsize=\"[0-9]+\"\\s+aria-posinset=\"[0-9]+\">\\s+<img\\s+class=\"masrw-screenshot\"\\s+src=\"([^\"]+)\"\\s+alt=\".*\">\\s+</li>",
+      "icon_pattern": "<img\\s+id=\"js-masrw-main-image\"\\s+src=\"([^\"]+)\"\\salt=",
+      "icon_pattern_alt": "",
+      "gitlab_repo_id_pattern": "<span\\sclass=\"gl-sr-only\"\\sdata-testid=\"project-id-content\"\\sitemprop=\"identifier\">\n*Project\\sID:\\s([0-9]+)\n*</span>",
+      "ads_pattern": "<span>Developer Advertising or Marketing</span>",
+      "inapp_purchases_pattern": "This app contains in-app purchasing",
+      "tracking_pattern": "<span class=\"a-size-base-plus privacy-data-heading-desktop a-text-bold\">Learn what data is collected by this app and for what purpose:</span>"
+    }
   }
 }
