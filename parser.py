@@ -1746,7 +1746,7 @@ def get_apkcombo_page(resp_list: list,
         resp_int = sess.get(url_int, allow_redirects=True)
         resp_int = resp_int.content.decode(encoding="utf_8", errors="replace")
 
-        if resp.find("We're sorry, the app was not found on APKCombo.") != -1:
+        if resp_int.find("We're sorry, the app was not found on APKCombo.") != -1:
             print(Fore.YELLOW + "\t%s was not found on Apkcombo.\n" % new_package)
             return False
 
