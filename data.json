@@ -215,6 +215,7 @@
     "Tools": "System",
     "Travel and Local": "",
     "Travel & Local": "",
+    "Video Players and Editors": "Multimedia",
     "Video Players & Editors": "Multimedia",
     "Video Players and Editors": "Multimedia",
     "Weather": "Internet"
@@ -231,8 +232,8 @@
     "Music": "Game - Music",
     "Puzzle": "Game - Puzzle",
     "Racing": "Game- Racing",
-    "Role Playing": "Game - Racing",
-    "Simulation": "Game - Racing",
+    "Role Playing": "Game - RPG",
+    "Simulation": "Game - Simulation",
     "Sports": "Game - Sports",
     "Strategy": "Game - Strategy",
     "Trivia": "Game - Trivia",
