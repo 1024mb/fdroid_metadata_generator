@@ -168,7 +168,7 @@ def main():
 
     lang = sanitize_lang(lang=args.language)
 
-    if lang not in data_file_content["Locales"]:
+    if lang not in data_file_content["Locales"]["Play_Store"]:
         print(Fore.RED + "ERROR: Invalid language.")
         exit(1)
 
@@ -670,6 +670,14 @@ def retrieve_info(package_list: Dict[str, str],
                 break
             resp_list = []
 
+            if get_apkcombo_page(resp_list=resp_list,
+                                 language=lang,
+                                 new_package=new_package,
+                                 data_file_content=data_file_content):
+                store_name = "Apkcombo_Store"
+                break
+            resp_list = []
+
             not_found_packages.append(package)
 
             get_version(package_content=package_content,
@@ -1056,7 +1064,10 @@ def get_categories(package_content: dict,
         ret_grp = re.search(category_pattern, resp_int)
 
         if ret_grp is not None:
-            cat_list = extract_categories(ret_grp, resp_int, data_file_content)
+            cat_list = extract_categories(ret_grp=ret_grp,
+                                          resp_int=resp_int,
+                                          data_file_content=data_file_content,
+                                          store_name=store_name)
             package_content["Categories"] = cat_list
         else:
             print(Fore.YELLOW + "\tWARNING: Couldn't get the categories.\n")
@@ -1065,12 +1076,18 @@ def get_categories(package_content: dict,
 
 def extract_categories(ret_grp: re.Match,
                        resp_int: str,
-                       data_file_content: dict):
+                       data_file_content: dict,
+                       store_name: str):
+
+    sport_category_pattern = data_file_content["Sport_Category_Pattern"][store_name]
+
     cat_list = []
 
     for cat in ret_grp.groups():
         if html.unescape(cat.strip()) == "Sports":
-            if resp_int.find("href=\"/store/apps/category/GAME_SPORTS\""):
+            if (sport_category_pattern is not None
+                    and sport_category_pattern != ""
+                    and resp_int.find(sport_category_pattern)):
                 cat_list.append(data_file_content["Game_Categories"][html.unescape(cat.strip())])
             elif data_file_content["App_Categories"][html.unescape(cat.strip())] != "":
                 cat_list.append(data_file_content["App_Categories"][html.unescape(cat.strip())])
@@ -1288,7 +1305,19 @@ def get_screenshots(resp: str,
 
     print(Fore.GREEN + "\tDownloading screenshots for %s\n" % package)
 
-    img_url_list = re.findall(screenshot_pattern, resp)  # type: List[str]
+    if store_name == "Apkcombo_Store":
+        screenshot_pattern_alt = data_file_content["Regex_Patterns"][store_name]["screenshot_pattern_alt"]
+
+        try:
+            scrn_div = re.search(screenshot_pattern, resp).group(1)
+        except (AttributeError, IndexError):
+            print(Fore.YELLOW + "\tCouldn't get screenshots URLs for %s\n" % new_package)
+            screenshots_not_found_packages.append(package)
+            return
+
+        img_url_list = re.findall(screenshot_pattern_alt, scrn_div)
+    else:
+        img_url_list = re.findall(screenshot_pattern, resp)  # type: List[str]
 
     if len(img_url_list) == 0:
         print(Fore.YELLOW + "\tCouldn't get screenshots URLs for %s\n" % new_package)
@@ -1331,7 +1360,7 @@ def get_screenshots(resp: str,
     i = 0
 
     for img_url in img_url_list:
-        if store_name == "Play_Store":
+        if store_name == "Play_Store" or store_name == "Apkcombo_Store":
             url = img_url + "=w9999"
         else:
             url = img_url
@@ -1426,7 +1455,7 @@ def get_icon(resp_int: str,
             return
 
     if icon_base_url is not None:
-        if store_name == "Play_Store":
+        if store_name == "Play_Store" or store_name == "Apkcombo_Store":
             for dirname in data_file_content["Icon_Relations"].keys():
                 icon_path = os.path.join(repo_dir, dirname, filename)
 
@@ -1470,6 +1499,7 @@ def get_icon(resp_int: str,
                                                int(data_file_content["Icon_Relations"][dirname])))
                 resized_img.save(icon_path)
                 orig_img.close()
+
 
     elif icon_base_url_alt is not None:
         if store_name == "Play_Store":
@@ -1676,6 +1706,66 @@ def get_amazon_page(resp_list: list,
     resp_list.append(resp_int)
 
     return True
+
+
+def get_apkcombo_page(resp_list: list,
+                      language: str,
+                      new_package: str,
+                      data_file_content: dict) -> bool:
+
+    url_int = "https://apkcombo.com/xxxx/" + new_package
+
+    alt_language = re.sub(r"-.+", "", language)
+    new_language = sanitize_lang_apkcombo(language=alt_language,
+                                          data_file_content=data_file_content)
+
+    url = "https://apkcombo.com/" + new_language + "/xxxx/" + new_package
+
+    sess = requests.Session()
+
+    sess.headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+        "Accept-Language": language + "," + alt_language
+    }
+
+    resp = sess.get(url, allow_redirects=True)
+    resp = resp.content.decode(encoding="utf_8", errors="replace")
+
+    if resp.find("We're sorry, the app was not found on APKCombo.") != -1:
+        print(Fore.YELLOW + "\t%s was not found on Apkcombo.\n" % new_package)
+        return False
+
+    if new_language == "en":
+        resp_int = resp
+    else:
+        sess.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
+            "Accept-Language": "en-US,en"
+        }
+
+        resp_int = sess.get(url_int, allow_redirects=True)
+        resp_int = resp_int.content.decode(encoding="utf_8", errors="replace")
+
+        if resp.find("We're sorry, the app was not found on APKCombo.") != -1:
+            print(Fore.YELLOW + "\t%s was not found on Apkcombo.\n" % new_package)
+            return False
+
+    resp_list.append(resp)
+    resp_list.append(resp_int)
+
+    return True
+
+
+def sanitize_lang_apkcombo(language: str,
+                           data_file_content: dict) -> str:
+    if language == "in":
+        language = "id"
+
+    if language not in data_file_content["Locales"]["Apkcombo_Store"]:
+        print(Fore.YELLOW + "\tThe language %s is not available in Apkcombo, English will be used instead." % language)
+        language = "en"
+
+    return language
 
 
 if __name__ == "__main__":
