@@ -31,9 +31,14 @@ from dep.apkfile_fork import ApkFile
 def main():
     parser = argparse.ArgumentParser(description="Parser for PlayStore information to F-Droid YML metadata files.")
     parser.add_argument("-m", "--metadata-dir",
-                        help="Directory where F-Droid metadata files are stored.")
+                        help="Directory where F-Droid metadata files are stored.",
+                        nargs=1)
     parser.add_argument("-r", "--repo-dir",
-                        help="Directory where F-Droid repo files are stored.")
+                        help="Directory where F-Droid repo files are stored.",
+                        nargs=1)
+    parser.add_argument("-u", "--unsigned-dir",
+                        help="Directory where unsigned app files are stored.",
+                        nargs=1)
     parser.add_argument("-l", "--language",
                         help="Language of the information to retrieve.",
                         required=True)
@@ -76,10 +81,12 @@ def main():
     parser.add_argument("-df", "--data-file",
                         help="Path to the JSON formatted data file. "
                              "Default: data.json located in the program directory.",
-                        default=os.path.join(Path(__file__).resolve().parent, "data.json"))
+                        default=[os.path.join(Path(__file__).resolve().parent, "data.json")],
+                        nargs=1)
     parser.add_argument("-rf", "--replacement-file",
                         help="JSON formatted file containing a dict with replacements for the package name of all found"
-                             " apps.")
+                             " apps.",
+                        nargs=1)
     parser.add_argument("-lp", "--log-path",
                         help="Path to the directory where to store the log files. Default: Program directory.",
                         default=[str(Path(__file__).resolve().parent)],
@@ -92,12 +99,20 @@ def main():
 
     init(autoreset=True)
 
-    if args.metadata_dir is None and args.repo_dir is None:
-        print(Fore.RED + "ERROR: Please provide either the metadata directory or the repository directory.")
+    if args.metadata_dir is None and args.repo_dir is None and args.unsigned_dir is None:
+        print(Fore.RED + "ERROR: Please provide at least the metadata directory, "
+                         "the repository directory or the unsigned directory.")
         exit(1)
 
-    if args.metadata_dir is not None and args.repo_dir is not None:
-        print(Fore.RED + "ERROR: Please provide only the metadata directory or the repository directory. Not both.")
+    if args.metadata_dir is not None and args.repo_dir is not None and args.unsigned_dir is not None:
+        print(Fore.RED + "ERROR: Please provide only the metadata, "
+                         "the repository or the unsigned directory. Not all of them.")
+        exit(1)
+
+    if ((args.metadata_dir is not None and args.repo_dir is not None)
+            or (args.repo_dir is not None and args.unsigned_dir is not None)
+            or (args.metadata_dir is not None and args.unsigned_dir is not None)):
+        print(Fore.RED + "ERROR: Please provide only one of the directories.")
         exit(1)
 
     if args.metadata_dir is not None and len(args.metadata_dir) == 0:
@@ -108,8 +123,12 @@ def main():
         print(Fore.RED + "ERROR: Repo directory path cannot be empty.")
         exit(1)
 
+    if args.unsigned_dir is not None and len(args.unsigned_dir) == 0:
+        print(Fore.RED + "ERROR: Unsigned directory path cannot be empty.")
+        exit(1)
+
     if args.metadata_dir is not None:
-        metadata_dir = os.path.abspath(args.metadata_dir)
+        metadata_dir = os.path.abspath(args.metadata_dir[0])
         if os.path.split(metadata_dir)[1] != "metadata":
             print(Fore.RED + "ERROR: Metadata directory path doesn't look like a "
                              "F-Droid repository metadata directory, aborting...")
@@ -117,17 +136,36 @@ def main():
         elif not os.path.exists(metadata_dir):
             print(Fore.RED + "ERROR: Metadata directory path doesn't exist, aborting...")
             exit(1)
+        elif not os.path.isdir(metadata_dir):
+            print(Fore.RED + "ERROR: Invalid metadata directory, supplied path is not a directory")
+            exit(1)
 
     if args.repo_dir is not None:
-        repo_dir = os.path.abspath(args.repo_dir)
+        repo_dir = os.path.abspath(args.repo_dir[0])
         if os.path.split(repo_dir)[1] != "repo":
             print(Fore.RED + "ERROR: Repo directory path doesn't look like a F-Droid repository directory, aborting...")
             exit(1)
         elif not os.path.exists(repo_dir):
             print(Fore.RED + "ERROR: Repo directory path doesn't exist, aborting...")
             exit(1)
+        elif not os.path.isdir(repo_dir):
+            print(Fore.RED + "ERROR: Invalid repo directory, supplied path is not a directory")
+            exit(1)
 
-    if not os.path.exists(os.path.abspath(args.data_file)) or not os.path.isfile(os.path.abspath(args.data_file)):
+    if args.unsigned_dir is not None:
+        unsigned_dir = os.path.abspath(args.unsigned_dir[0])
+        if os.path.split(unsigned_dir)[1] != "unsigned":
+            print(Fore.RED + "ERROR: Unsigned directory path doesn't look like a F-Droid unsigned directory, "
+                             "aborting...")
+            exit(1)
+        elif not os.path.exists(unsigned_dir):
+            print(Fore.RED + "ERROR: Unsigned directory path doesn't exist, aborting...")
+            exit(1)
+        if not os.path.isdir(unsigned_dir):
+            print(Fore.RED + "ERROR: Invalid unsigned directory, supplied path is not a directory")
+            exit(1)
+
+    if not os.path.exists(os.path.abspath(args.data_file[0])) or not os.path.isfile(os.path.abspath(args.data_file[0])):
         print(Fore.RED + "ERROR: Invalid data file.")
         exit(1)
 
@@ -141,13 +179,15 @@ def main():
             exit(1)
 
     if args.replacement_file is not None:
-        if (not os.path.exists(os.path.abspath(args.replacement_file)) or
-                not os.path.isfile(os.path.abspath(args.replacement_file))):
-            print(Fore.RED + "ERROR: Invalid replace file.")
+        if (not os.path.exists(os.path.abspath(args.replacement_file[0])) or
+                not os.path.isfile(os.path.abspath(args.replacement_file[0]))):
+            print(Fore.RED + "ERROR: Invalid replacement file.")
             exit(1)
 
+    replacement_file = args.replacement_file[0]
+
     try:
-        data_file_stream = open(args.data_file, mode="r", encoding="utf_8")
+        data_file_stream = open(args.data_file[0], mode="r", encoding="utf_8")
     except FileNotFoundError:
         print(Fore.RED + "ERROR: Data file not found.")
         exit(1)
@@ -239,15 +279,15 @@ def main():
         force_icons = True
 
     if "metadata_dir" in locals():
-        if not os.path.isdir(metadata_dir):
-            print(Fore.RED + "ERROR: Invalid metadata directory, supplied path is not a directory")
-            exit(1)
-
         repo_dir = os.path.join(os.path.split(metadata_dir)[0], "repo")
+        os.makedirs(repo_dir, exist_ok=True)
 
         if args.convert_apks:
-            convert_apks(key_file=args.key_file[0], cert_file=args.cert_file[0], password=args.certificate_password,
-                         repo_dir=repo_dir, build_tools_path=args.build_tools_path,
+            convert_apks(key_file=args.key_file[0],
+                         cert_file=args.cert_file[0],
+                         password=args.certificate_password,
+                         apks_dir=repo_dir,
+                         build_tools_path=args.build_tools_path,
                          apk_editor_path=args.apk_editor_path[0])
 
         mapped_apk_files = map_apk_to_packagename(repo_dir=repo_dir)
@@ -262,7 +302,8 @@ def main():
             if os.path.splitext(item)[1].lower() != ".yml":
                 print(Fore.YELLOW + "WARNING: Skipping %s.\n" % item)
             else:
-                new_base_name = get_new_packagename(replacement_file=args.replacement_file, base_name=base_name)
+                new_base_name = get_new_packagename(replacement_file=replacement_file,
+                                                    base_name=base_name)
 
                 if new_base_name is not None:
                     package_list[base_name] = new_base_name
@@ -270,12 +311,13 @@ def main():
                     package_list[base_name] = base_name
 
                 if apk_file_path is not None and os.path.exists(apk_file_path) and os.path.isfile(apk_file_path):
+                    apk_info = ApkFile(apk_file_path)
                     if new_base_name is not None:
-                        package_and_version[new_base_name] = (int(ApkFile(apk_file_path).version_code),
-                                                              str(ApkFile(apk_file_path).version_name))
+                        package_and_version[new_base_name] = (int(apk_info.version_code),
+                                                              str(apk_info.version_name))
                     else:
-                        package_and_version[base_name] = (int(ApkFile(apk_file_path).version_code),
-                                                          str(ApkFile(apk_file_path).version_name))
+                        package_and_version[base_name] = (int(apk_info.version_code),
+                                                          str(apk_info.version_name))
                 else:
                     if new_base_name is not None:
                         package_and_version[new_base_name] = (0, "0")
@@ -296,34 +338,85 @@ def main():
                       log_path=log_path,
                       cookie_path=cookie_path)
     elif "repo_dir" in locals():
-        if not os.path.isdir(repo_dir):
-            print(Fore.RED + "ERROR: Invalid repo directory, supplied path is not a directory")
-            exit(1)
-
         if args.convert_apks:
-            convert_apks(key_file=args.key_file[0], cert_file=args.cert_file[0], password=args.certificate_password,
-                         repo_dir=repo_dir, build_tools_path=args.build_tools_path,
+            convert_apks(key_file=args.key_file[0],
+                         cert_file=args.cert_file[0],
+                         password=args.certificate_password,
+                         apks_dir=repo_dir,
+                         build_tools_path=args.build_tools_path,
                          apk_editor_path=args.apk_editor_path[0])
 
         metadata_dir = os.path.join(os.path.split(repo_dir)[0], "metadata")
+        os.makedirs(metadata_dir, exist_ok=True)
 
         print(Fore.GREEN + "Getting package names, version names and version codes...\n")
 
         for apk_file in os.listdir(repo_dir):
             apk_file_path = os.path.join(repo_dir, apk_file)
 
-            if os.path.isfile(os.path.join(repo_dir, apk_file)) and os.path.splitext(apk_file)[1].lower() == ".apk":
-                base_name = ApkFile(apk_file_path).package_name
-                new_base_name = get_new_packagename(replacement_file=args.replacement_file, base_name=base_name)
+            if os.path.isfile(apk_file_path) and os.path.splitext(apk_file)[1].lower() == ".apk":
+                apk_info = ApkFile(apk_file_path)
+                base_name = apk_info.package_name
+                new_base_name = get_new_packagename(replacement_file=replacement_file,
+                                                    base_name=base_name)
 
                 if new_base_name is not None:
                     package_list[base_name] = new_base_name
-                    package_and_version[new_base_name] = (int(ApkFile(apk_file_path).version_code),
-                                                          str(ApkFile(apk_file_path).version_name))
+                    package_and_version[new_base_name] = (int(apk_info.version_code),
+                                                          str(apk_info.version_name))
                 else:
                     package_list[base_name] = base_name
-                    package_and_version[base_name] = (int(ApkFile(apk_file_path).version_code),
-                                                      str(ApkFile(apk_file_path).version_name))
+                    package_and_version[base_name] = (int(apk_info.version_code),
+                                                      str(apk_info.version_name))
+
+        print(Fore.GREEN + "Finished getting package names, version names and version.\n")
+
+        retrieve_info(package_list=package_list,
+                      package_and_version=package_and_version,
+                      lang=lang,
+                      metadata_dir=metadata_dir,
+                      repo_dir=repo_dir,
+                      force_metadata=force_metadata,
+                      force_version=force_version,
+                      force_screenshots=force_screenshots,
+                      force_icons=force_icons,
+                      dl_screenshots=args.download_screenshots,
+                      data_file_content=data_file_content,
+                      log_path=log_path,
+                      cookie_path=cookie_path)
+    elif "unsigned_dir" in locals():
+        metadata_dir = os.path.join(os.path.split(unsigned_dir)[0], "metadata")
+        repo_dir = os.path.join(os.path.split(unsigned_dir)[0], "repo")
+        os.makedirs(metadata_dir, exist_ok=True)
+        os.makedirs(repo_dir, exist_ok=True)
+
+        if args.convert_apks:
+            convert_apks(key_file=args.key_file[0],
+                         cert_file=args.cert_file[0],
+                         password=args.certificate_password,
+                         apks_dir=unsigned_dir,
+                         build_tools_path=args.build_tools_path,
+                         apk_editor_path=args.apk_editor_path[0])
+
+        print(Fore.GREEN + "Getting package names, version names and version codes...\n")
+
+        for apk_file in os.listdir(unsigned_dir):
+            apk_file_path = os.path.join(unsigned_dir, apk_file)
+
+            if os.path.isfile(apk_file_path) and os.path.splitext(apk_file)[1].lower() == ".apk":
+                apk_info = ApkFile(apk_file_path)
+                base_name = apk_info.package_name
+                new_base_name = get_new_packagename(replacement_file=replacement_file,
+                                                    base_name=base_name)
+
+                if new_base_name is not None:
+                    package_list[base_name] = new_base_name
+                    package_and_version[new_base_name] = (int(apk_info.version_code),
+                                                          str(apk_info.version_name))
+                else:
+                    package_list[base_name] = base_name
+                    package_and_version[base_name] = (int(apk_info.version_code),
+                                                      str(apk_info.version_name))
 
         print(Fore.GREEN + "Finished getting package names, version names and version.\n")
 
@@ -399,13 +492,22 @@ def check_data_file(data_file_content) -> bool:
         print(Fore.RED + "ERROR: \"Icon_Relations\" key is missing or empty in the data file.\n")
         return False
 
+    if data_file_content.get("Regex_Patterns") is None or len(data_file_content.get("Regex_Patterns")) == 0:
+        print(Fore.RED + "ERROR: \"Regex_Patterns\" key is missing or empty in the data file.\n")
+        return False
+
+    if (data_file_content.get("Sport_Category_Pattern") is None
+            or len(data_file_content.get("Sport_Category_Pattern")) == 0):
+        print(Fore.RED + "ERROR: \"Sport_Category_Pattern\" key is missing or empty in the data file.\n")
+        return False
+
     return True
 
 
 def convert_apks(key_file: str,
                  cert_file: str,
                  password: List[str] | None,
-                 repo_dir: str,
+                 apks_dir: str,
                  build_tools_path: List[str] | None,
                  apk_editor_path: str):
     print(Fore.GREEN + "Starting APKS conversion...\n")
@@ -434,13 +536,13 @@ def convert_apks(key_file: str,
 
     proc = False
 
-    for file in os.listdir(repo_dir):
+    for file in os.listdir(apks_dir):
         if os.path.splitext(file)[1].lower() != ".apks":
             continue
 
-        apks_path = os.path.join(repo_dir, file)
-        apk_path_unsigned = os.path.join(repo_dir, os.path.splitext(file)[0] + "_unsigned.apk")
-        apk_path_signed = os.path.join(repo_dir, os.path.splitext(file)[0] + ".apk")
+        apks_path = os.path.join(apks_dir, file)
+        apk_path_unsigned = os.path.join(apks_dir, os.path.splitext(file)[0] + "_unsigned.apk")
+        apk_path_signed = os.path.join(apks_dir, os.path.splitext(file)[0] + ".apk")
         old_app_stats = None
 
         try:
