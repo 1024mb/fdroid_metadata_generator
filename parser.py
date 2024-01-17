@@ -649,12 +649,11 @@ def retrieve_info(package_list: Dict[str, str],
 
         resp_list = []
 
-        print(Fore.GREEN + "\tDownloading Play Store pages...\n")
-
         skip_package = False
         store_name = None
 
         for _ in [1]:
+            print(Fore.GREEN + "\tDownloading Play Store page...\n")
             if get_play_store_page(new_package=new_package,
                                    resp_list=resp_list,
                                    language=lang):
@@ -662,6 +661,7 @@ def retrieve_info(package_list: Dict[str, str],
                 break
             resp_list = []
 
+            print(Fore.GREEN + "\tDownloading Amazon Appstore page...\n")
             if get_amazon_page(resp_list=resp_list,
                                language=lang,
                                new_package=new_package,
@@ -670,6 +670,7 @@ def retrieve_info(package_list: Dict[str, str],
                 break
             resp_list = []
 
+            print(Fore.GREEN + "\tDownloading Apkcombo page...\n")
             if get_apkcombo_page(resp_list=resp_list,
                                  language=lang,
                                  new_package=new_package,
@@ -1500,7 +1501,6 @@ def get_icon(resp_int: str,
                 resized_img.save(icon_path)
                 orig_img.close()
 
-
     elif icon_base_url_alt is not None:
         if store_name == "Play_Store":
             for dirname in data_file_content["Icon_Relations"].keys():
@@ -1672,6 +1672,7 @@ def get_amazon_page(resp_list: list,
 
     sess = requests.Session()
     sess.cookies = cookie_jar
+    sess.cookies.load()
 
     sess.headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0",
@@ -1685,6 +1686,10 @@ def get_amazon_page(resp_list: list,
         return False
 
     resp = resp.content.decode(encoding="utf_8", errors="replace")
+
+    if "<p class=\"a-last\">Sorry, we just need to make sure you're not a robot." in resp:
+        print(Fore.RED + "\tERROR: Cookie file doesn't contain Amazon cookies.\n")
+        return False
 
     if language == "en-US":
         resp_int = resp
