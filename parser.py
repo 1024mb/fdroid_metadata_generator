@@ -260,9 +260,13 @@ def main():
             exit(1)
 
     log_path = args.log_path[0]
-    if not os.path.exists(log_path) or not os.path.isdir(log_path):
+
+    if os.path.exists(log_path) and not os.path.isdir(log_path):
         print(Fore.RED + "Invalid log path.")
         exit(1)
+
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
 
     package_list = {}
     package_and_version = {}
