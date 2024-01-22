@@ -1,14 +1,16 @@
-## This program extracts information from the Play Store and stores it in a YML file for F-Droid Server.
+## This program extracts information from third party stores and saves it in a YAML file for F-Droid Server.
 
 Python version required is 3.9+.
 
 Dependencies
 -------------------------
 
-- [pyYAML](https://github.com/yaml/pyyaml)
+- [ruamel.yaml](https://sourceforge.net/projects/ruamel-yaml)
 - [colorama](https://github.com/tartley/colorama)
 - [win32-setctime](https://github.com/Delgan/win32-setctime) : *If on Windows*
 - [apkfile](https://github.com/david-lev/apkfile) : *Included in repo, forked to add support for aapt2.*
+- [pillow](https://github.com/python-pillow/Pillow)
+- [requests](https://github.com/psf/requests)
 
 Usage:
 -------------------------
@@ -64,7 +66,7 @@ This program:
 * Needs to know where the metadata is located, it can infer this if you provide either the metadata or repo path.
 * Depends on a data file, explained below.
 * Needs a language to be provided.
-* Needs AAPT and AAPT2 in your PATH.
+* Requires AAPT and AAPT2.
 
 By default no data will be overwritten except for empty/dummy values.
 
@@ -75,7 +77,8 @@ the screenshots with `-fs`/`--foce-screenshots`. If `-fs`/`--foce-screenshots`/`
 screenshots already exist they will be moved to a backup directory in `/repo/backup`. The deletion of the backup files
 is up to the user (you).
 
-If the provided paths for the corresponding option don't end in `metadata` or `repo` the program will terminate.
+If the provided paths for the corresponding option don't end with `metadata`, `repo` or `unsigned` the program will
+terminate.
 
 If `-m`/`--metadata-dir` is provided only the YML files present in the `/metadata` directory will be processed, if there
 are APK files in the `/repo` directory that don't have a YML file they will not be created.
@@ -83,7 +86,11 @@ are APK files in the `/repo` directory that don't have a YML file they will not 
 If `-r`/`--repo-dir` is provided only the APK files present in the `/repo` directory will be processed, if there are YML
 files in the `/metadata` directory that don't have an existing APK file they wont be processed.
 
-By default only the icons will be downloaded from Play Store, if you want to also get the
+If `-u`/`--unsigned-dir` is provided only the APK files present in the `/unsigned` directory will be processed, APK
+files in the `repo` directory and YML files in the `metadata` directory that don't match any APK in the `unsigned`
+directory wont be processed.
+
+By default only the icons will be downloaded from the stores, if you want to also get the
 screenshots `-dls`/`--download-screenshots` must be used, they will be stored
 in `/repo/<package-id>/en-US/phoneScreenshots` regardless of the language used because that's the locale F-Droid
 defaults to.
@@ -143,8 +150,9 @@ The contents are as follows:
   the [official documentation][3].
 * **Icon_Relations**: Dict containing the relation between the directory name (key/left) and the icon size (
   value/right). Icons are squares so only the one number is needed.
-* **Regex_Patterns**: Dict containing the regex search patterns for data extraction: key/left is name of pattern,
-  value/right is the pattern.
+* **Regex_Patterns**: Dict containing the regex search patterns for data extraction for every supported store: key/left
+  is name of pattern,
+  value/right is the (regex) pattern.
 
 The default path for the data file is `<path-to-this-program>/data.json`, other path can be specified
 using `-df`/`--data-file`.
