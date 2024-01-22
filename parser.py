@@ -683,19 +683,13 @@ def retrieve_info(package_list: Dict[str, str],
 
         print(Fore.GREEN + "Processing " + package + "...\n")
 
-        if os.path.exists(os.path.join(metadata_dir, package + ".yml")):
-            try:
-                stream = open(os.path.join(metadata_dir, package + ".yml"), "r", encoding="utf_8")
-                package_content = yaml.load(stream, Loader=Loader)  # type:Dict
-                stream.close()
+        package_content = load_yml(metadata_dir=metadata_dir,
+                                   package=package)
 
-                if package_content is None:
-                    package_content = {}
-            except PermissionError:
-                print(Fore.YELLOW + "\tWARNING: Couldn't read metadata file. Permission denied, skipping package...\n")
-                continue
-        else:
-            package_content = {}
+        if package_content is None:
+            continue
+
+        package_content_orig = copy.deepcopy(package_content)
 
         metadata_exist = None
         icons_exist = None
@@ -755,9 +749,10 @@ def retrieve_info(package_list: Dict[str, str],
 
                 print(Fore.GREEN + "\tFinished getting version for %s.\n" % package)
 
-                write_yml(metadata_dir=metadata_dir,
-                          package=package,
-                          package_content=package_content)
+                if package_content_orig != package_content:
+                    write_yml(metadata_dir=metadata_dir,
+                              package=package,
+                              package_content=package_content)
                 continue
 
         proc = True
@@ -802,9 +797,10 @@ def retrieve_info(package_list: Dict[str, str],
                         force_metadata=force_metadata,
                         force_version=force_version)
 
-            write_yml(metadata_dir=metadata_dir,
-                      package=package,
-                      package_content=package_content)
+            if package_content_orig != package_content:
+                write_yml(metadata_dir=metadata_dir,
+                          package=package,
+                          package_content=package_content)
 
             print(Fore.GREEN + "Finished processing %s.\n" % package)
             skip_package = True
@@ -861,10 +857,11 @@ def retrieve_info(package_list: Dict[str, str],
 
         print(Fore.GREEN + "\tFinished information extraction for %s.\n" % package)
 
-        if not write_yml(metadata_dir=metadata_dir,
-                         package=package,
-                         package_content=package_content):
-            continue
+        if package_content_orig != package_content:
+            if not write_yml(metadata_dir=metadata_dir,
+                             package=package,
+                             package_content=package_content):
+                continue
 
         if not force_icons and icons_exist is None:
             icons_exist = is_icon_complete(package=package,
@@ -1768,6 +1765,28 @@ def write_yml(metadata_dir: str,
     except PermissionError:
         print(Fore.RED + "\tERROR: Couldn't write YML file for %s. Permission denied.\n" % package)
         return False
+
+
+def load_yml(metadata_dir: str,
+             package: str) -> Optional[Dict]:
+    if os.path.exists(os.path.join(metadata_dir, package + ".yml")):
+        try:
+            stream = open(os.path.join(metadata_dir, package + ".yml"), "r", encoding="utf_8")
+
+            yaml = ruamel.yaml.YAML(typ="safe")
+            package_content = yaml.load(stream)  # type:Dict
+
+            stream.close()
+
+            if package_content is None:
+                return {}
+            else:
+                return package_content
+        except PermissionError:
+            print(Fore.YELLOW + "\tWARNING: Couldn't read metadata file. Permission denied, skipping package...\n")
+            return None
+    else:
+        return {}
 
 
 def write_not_found_log(items: list,
