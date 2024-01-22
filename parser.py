@@ -94,6 +94,9 @@ def main():
     parser.add_argument("--cookie-path",
                         help="Path to a Netscape cookie file.",
                         nargs=1)
+    parser.add_argument("--use-eng-name",
+                        help="Use the English app name instead of the localized one.",
+                        action="store_true")
 
     args = parser.parse_args()
 
@@ -271,11 +274,12 @@ def main():
     package_list = {}
     package_and_version = {}
 
-    force_metadata = args.force_metadata
-    force_version = args.force_version
-    force_screenshots = args.force_screenshots
-    force_icons = args.force_icons
+    force_metadata = args.force_metadata  # type: bool
+    force_version = args.force_version  # type: bool
+    force_screenshots = args.force_screenshots  # type: bool
+    force_icons = args.force_icons  # type: bool
     cookie_path = args.cookie_path
+    use_eng_name = args.use_eng_name  # type: bool
 
     if args.force_all:
         force_metadata = True
@@ -340,7 +344,8 @@ def main():
                       dl_screenshots=args.download_screenshots,
                       data_file_content=data_file_content,
                       log_path=log_path,
-                      cookie_path=cookie_path)
+                      cookie_path=cookie_path,
+                      use_eng_name=use_eng_name)
     elif "repo_dir" in locals():
         if args.convert_apks:
             convert_apks(key_file=args.key_file[0],
@@ -387,7 +392,8 @@ def main():
                       dl_screenshots=args.download_screenshots,
                       data_file_content=data_file_content,
                       log_path=log_path,
-                      cookie_path=cookie_path)
+                      cookie_path=cookie_path,
+                      use_eng_name=use_eng_name)
     elif "unsigned_dir" in locals():
         metadata_dir = os.path.join(os.path.split(unsigned_dir)[0], "metadata")
         repo_dir = os.path.join(os.path.split(unsigned_dir)[0], "repo")
@@ -436,7 +442,8 @@ def main():
                       dl_screenshots=args.download_screenshots,
                       data_file_content=data_file_content,
                       log_path=log_path,
-                      cookie_path=cookie_path)
+                      cookie_path=cookie_path,
+                      use_eng_name=use_eng_name)
     else:
         print(Fore.RED + "ERROR: We shouldn't have got here.")
         exit(1)
@@ -653,7 +660,8 @@ def retrieve_info(package_list: Dict[str, str],
                   dl_screenshots: bool,
                   data_file_content: dict,
                   log_path: str,
-                  cookie_path: list | None):
+                  cookie_path: list | None,
+                  use_eng_name: bool):
 
     proc = False
 
@@ -825,7 +833,8 @@ def retrieve_info(package_list: Dict[str, str],
                              description_not_found_packages=description_not_found_packages,
                              force_metadata=force_metadata,
                              data_file_content=data_file_content,
-                             store_name=store_name)
+                             store_name=store_name,
+                             use_eng_name=use_eng_name)
         else:
             get_metadata(package_content=package_content,
                          resp=resp,
@@ -840,7 +849,8 @@ def retrieve_info(package_list: Dict[str, str],
                          description_not_found_packages=description_not_found_packages,
                          force_metadata=force_metadata,
                          data_file_content=data_file_content,
-                         store_name=store_name)
+                         store_name=store_name,
+                         use_eng_name=use_eng_name)
 
         get_version(package_content=package_content,
                     package_and_version=package_and_version,
@@ -979,7 +989,8 @@ def get_metadata(package_content: dict,
                  description_not_found_packages: list,
                  force_metadata: bool,
                  data_file_content: dict,
-                 store_name: str) -> None:
+                 store_name: str,
+                 use_eng_name: bool) -> None:
     author_name_pattern = data_file_content["Regex_Patterns"][store_name]["author_name_pattern"]
     author_email_pattern = data_file_content["Regex_Patterns"][store_name]["author_email_pattern"]
     name_pattern = data_file_content["Regex_Patterns"][store_name]["name_pattern"]
@@ -997,9 +1008,11 @@ def get_metadata(package_content: dict,
         get_name(package_content=package_content,
                  name_pattern=name_pattern,
                  resp=resp,
+                 resp_int=resp_int,
                  package=package,
                  name_not_found_packages=name_not_found_packages,
-                 force_metadata=force_metadata)
+                 force_metadata=force_metadata,
+                 use_eng_name=use_eng_name)
 
     if author_name_pattern != "":
         get_author_name(package_content=package_content,
@@ -1141,12 +1154,20 @@ def get_description(package_content: dict,
 def get_name(package_content: dict,
              name_pattern: str,
              resp: str,
+             resp_int: str,
              package: str,
              name_not_found_packages: list,
-             force_metadata: bool) -> None:
+             force_metadata: bool,
+             use_eng_name: bool) -> None:
     if package_content.get("Name", "") == "" or package_content.get("Name") is None or force_metadata:
+
+        if use_eng_name:
+            resp_final = resp_int
+        else:
+            resp_final = resp
+
         try:
-            package_content["Name"] = html.unescape(re.search(name_pattern, resp).group(1)).strip()
+            package_content["Name"] = html.unescape(re.search(name_pattern, resp_final).group(1)).strip()
         except (IndexError, AttributeError):
             print(Fore.YELLOW + "\tWARNING: Couldn't get the application name.\n")
             name_not_found_packages.append(package)
