@@ -1142,11 +1142,22 @@ def get_description(package_content: dict,
                     force_metadata: bool) -> None:
     if package_content.get("Description", "") == "" or package_content.get("Description") is None or force_metadata:
         try:
-            package_content["Description"] = html.unescape(
+            description_extracted = html.unescape(
                     re.search(description_pattern, resp).group(1)).replace("<br>", "\n").strip()
+
+            description = ""
+            for line in description_extracted.splitlines():
+                if description == "":
+                    description += line.strip()
+                else:
+                    description += "\n" + line.strip()
+
         except (IndexError, AttributeError):
             print(Fore.YELLOW + "\tWARNING: Couldn't get the description.\n")
             description_not_found_packages.append(package)
+            return
+
+        package_content["Description"] = description
 
 
 def get_name(package_content: dict,
