@@ -1444,6 +1444,7 @@ def get_screenshots(resp: str,
     backup_path = os.path.join(repo_dir, "backup", package, "en-US", "phoneScreenshots")
 
     if os.path.exists(screenshots_path) and ".noscreenshots" in os.listdir(screenshots_path):
+        print(Fore.BLUE + "\tSkipping screenshots download for {}.".format(package), end="\n\n")
         return
 
     screenshot_pattern = data_file_content["Regex_Patterns"][store_name]["screenshot_pattern"]
@@ -1764,10 +1765,14 @@ def screenshot_exist(package: str,
 
     if not os.path.exists(screenshots_path):
         return False
-    elif len(os.listdir(screenshots_path)) > 0:
-        return True
-    else:
-        return False
+
+    for item in os.listdir(screenshots_path):
+        if item.lower().endswith((".png", ".jpg", ".jpeg")):
+            return True
+        if item.lower() == ".noscreenshots":
+            return True
+
+    return False
 
 
 def write_yml(metadata_dir: str,
