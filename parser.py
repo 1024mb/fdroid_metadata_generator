@@ -1370,15 +1370,16 @@ def get_summary(resp: str,
                 pattern: str) -> bool:
     try:
         summary = html.unescape(re.search(pattern, resp).group(1)).strip()
-        summary = re.sub(r"(<[^>]+>)", "", summary)
+        summary = re.sub(r"(<[^>]+>)", "", summary).strip()
 
         while len(summary) > 80:
             try:
-                summary = re.search(r"(^.+\.)\s+.+$", summary).group(1)
+                summary = re.search(r"(^.+)\.\s+.+$", summary).group(1)
             except (IndexError, AttributeError):
                 summary = re.search(r"^(.+)\s\S+\s*$", summary[:77]).group(1) + "..."
 
-        package_content["Summary"] = summary
+        package_content["Summary"] = summary.strip()
+
         return True
     except (IndexError, AttributeError):
         return False
