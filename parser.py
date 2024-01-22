@@ -1038,11 +1038,11 @@ def get_metadata(package_content: dict,
                               website_not_found_packages=website_not_found_packages,
                               force_metadata=force_metadata)
 
-        get_repo_info_and_license(package_content=package_content,
-                                  gitlab_repo_id_pattern=gitlab_repo_id_pattern,
-                                  website=website,
-                                  data_file_content=data_file_content,
-                                  force_metadata=force_metadata)
+    get_repo_info_and_license(package_content=package_content,
+                              gitlab_repo_id_pattern=gitlab_repo_id_pattern,
+                              website=website,
+                              data_file_content=data_file_content,
+                              force_metadata=force_metadata)
 
     if category_pattern != "":
         get_categories(package_content=package_content,
