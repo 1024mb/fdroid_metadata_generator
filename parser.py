@@ -1205,7 +1205,11 @@ def get_categories(package_content: dict,
                                           resp_int=resp_int,
                                           data_file_content=data_file_content,
                                           store_name=store_name)
-            package_content["Categories"] = cat_list
+            if cat_list is None:
+                print(Fore.YELLOW + "\tWARNING: Couldn't get the categories.\n")
+                category_not_found_packages.append(package)
+            else:
+                package_content["Categories"] = cat_list
         else:
             print(Fore.YELLOW + "\tWARNING: Couldn't get the categories.\n")
             category_not_found_packages.append(package)
@@ -1221,26 +1225,29 @@ def extract_categories(ret_grp: re.Match,
     cat_list = []
 
     for cat in ret_grp.groups():
-        if html.unescape(cat.strip()) == "Sports":
+        if html.unescape(cat).strip() == "Sports":
             if (sport_category_pattern is not None
                     and sport_category_pattern != ""
                     and resp_int.find(sport_category_pattern)):
-                cat_list.append(data_file_content["Game_Categories"][html.unescape(cat.strip())])
-            elif data_file_content["App_Categories"][html.unescape(cat.strip())] != "":
-                cat_list.append(data_file_content["App_Categories"][html.unescape(cat.strip())])
+                cat_list.append(data_file_content["Game_Categories"][html.unescape(cat).strip()])
+            elif data_file_content["App_Categories"][html.unescape(cat).strip()] != "":
+                cat_list.append(data_file_content["App_Categories"][html.unescape(cat).strip()])
             else:
-                cat_list.append(html.unescape(cat.strip()))
+                cat_list.append(html.unescape(cat).strip())
             continue
 
-        if cat.strip() != "" and html.unescape(cat.strip()) in data_file_content["Game_Categories"].keys():
-            cat_list.append(data_file_content["Game_Categories"][html.unescape(cat.strip())])
+        if cat.strip() != "" and html.unescape(cat).strip() in data_file_content["Game_Categories"].keys():
+            cat_list.append(data_file_content["Game_Categories"][html.unescape(cat).strip()])
             continue
 
-        if cat.strip() != "" and html.unescape(cat.strip()) in data_file_content["App_Categories"].keys():
-            if data_file_content["App_Categories"][html.unescape(cat.strip())] != "":
-                cat_list.append(data_file_content["App_Categories"][html.unescape(cat.strip())])
+        if cat.strip() != "" and html.unescape(cat).strip() in data_file_content["App_Categories"].keys():
+            if data_file_content["App_Categories"][html.unescape(cat).strip()] != "":
+                cat_list.append(data_file_content["App_Categories"][html.unescape(cat).strip()])
             else:
-                cat_list.append(html.unescape(cat.strip()))
+                cat_list.append(html.unescape(cat).strip())
+
+    if len(cat_list) == 0:
+        return None
 
     return cat_list
 
