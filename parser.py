@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import html
 import json
 import os
@@ -16,14 +17,14 @@ import urllib.request
 from datetime import datetime
 from http.cookiejar import MozillaCookieJar
 from pathlib import Path
-from typing import Dict, List, Tuple
+from sys import exit
+from typing import Dict, List, Tuple, Optional
 from urllib.error import HTTPError
 
 import requests
-import yaml
+import ruamel.yaml
 from PIL import Image
 from colorama import Fore, init
-from yaml import Loader, Dumper
 
 from dep.apkfile_fork import ApkFile
 
@@ -1755,8 +1756,14 @@ def write_yml(metadata_dir: str,
               package_content: Dict) -> bool:
     try:
         stream = open(os.path.join(metadata_dir, package + ".yml"), "w", encoding="utf_8")
-        yaml.dump(package_content, stream, Dumper=Dumper, allow_unicode=True, encoding="utf_8")
+
+        yaml = ruamel.yaml.YAML()
+        yaml.indent(mapping=2, sequence=4, offset=2)
+        ruamel.yaml.scalarstring.walk_tree(package_content)
+        yaml.dump(package_content, stream)
+
         stream.close()
+
         return True
     except PermissionError:
         print(Fore.RED + "\tERROR: Couldn't write YML file for %s. Permission denied.\n" % package)
