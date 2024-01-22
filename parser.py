@@ -1436,6 +1436,9 @@ def get_screenshots(resp: str,
     screenshots_path = os.path.join(repo_dir, package, "en-US", "phoneScreenshots")
     backup_path = os.path.join(repo_dir, "backup", package, "en-US", "phoneScreenshots")
 
+    if os.path.exists(screenshots_path) and ".noscreenshots" in os.listdir(screenshots_path):
+        return
+
     screenshot_pattern = data_file_content["Regex_Patterns"][store_name]["screenshot_pattern"]
 
     if screenshot_pattern == "":
