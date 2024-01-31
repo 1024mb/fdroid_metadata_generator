@@ -8,7 +8,6 @@ Dependencies
 - [ruamel.yaml](https://sourceforge.net/projects/ruamel-yaml)
 - [colorama](https://github.com/tartley/colorama)
 - [win32-setctime](https://github.com/Delgan/win32-setctime) : *If on Windows*
-- [apkfile](https://github.com/david-lev/apkfile) : *Included in repo, forked to add support for aapt2.*
 - [pillow](https://github.com/python-pillow/Pillow)
 - [requests](https://github.com/psf/requests)
 
@@ -16,46 +15,72 @@ Usage:
 -------------------------
 
 ```console
-usage: parser.py [-h] [-m METADATA_DIR] [-r REPO_DIR] -l LANGUAGE [-f] [-fv] [-fs] [-fi] [-fa] [-ca] [-kf KEY_FILE]
-                 [-cf CERT_FILE] [-cpw CERTIFICATE_PASSWORD] [-btp BUILD_TOOLS_PATH] [-aep APK_EDITOR_PATH] [-dls]
-                 [-df DATA_FILE] [-rf REPLACEMENT_FILE] [-lp LOG_PATH]
+usage: parser.py [-h] [--metadata-dir METADATA_DIR] [--repo-dir REPO_DIR]
+                 [--unsigned-dir UNSIGNED_DIR] --language LANGUAGE
+                 [--force-metadata] [--force-version] [--force-screenshots]
+                 [--force-icons] [--force-all] [--convert-apks] [--sign-apk]
+                 [--key-file KEY_FILE] [--cert-file CERT_FILE]
+                 [--certificate-password CERTIFICATE_PASSWORD]
+                 [--build-tools-path BUILD_TOOLS_PATH]
+                 [--apk-editor-path APK_EDITOR_PATH] [--download-screenshots]
+                 [--data-file DATA_FILE] [--replacement-file REPLACEMENT_FILE]
+                 [--log-path LOG_PATH] [--cookie-path COOKIE_PATH]
+                 [--use-eng-name] [--rename-files] [--skip-if-exists]
+                 [--recompile-bad-apk] [--apktool-path APKTOOL_PATH]
 
 Parser for PlayStore information to F-Droid YML metadata files.
 
 options:
   -h, --help            show this help message and exit
-  -m METADATA_DIR, --metadata-dir METADATA_DIR
+  --metadata-dir METADATA_DIR
                         Directory where F-Droid metadata files are stored.
-  -r REPO_DIR, --repo-dir REPO_DIR
-                        Directory where F-Droid repo files are stored.
-  -l LANGUAGE, --language LANGUAGE
-                        Language of the information to retrieve.
-  -f, --force-metadata  Force overwrite existing metadata.
-  -fv, --force-version  Force updating version name and code even if they are already specified in the YML file.
-  -fs, --force-screenshots
-                        Force overwrite existing screenshots.
-  -fi, --force-icons    Force overwrite existing icons.
-  -fa, --force-all      Force overwrite existing metadata, screenshots and icons.
-  -ca, --convert-apks   Convert APKS files to APK and sign them.
-  -kf KEY_FILE, --key-file KEY_FILE
-                        Key file used to sign the APK, required if --convert-apks is used.
-  -cf CERT_FILE, --cert-file CERT_FILE
-                        Cert file used to sign the APK, required if --convert-apks is used.
-  -cpw CERTIFICATE_PASSWORD, --certificate-password CERTIFICATE_PASSWORD
+  --repo-dir REPO_DIR   Directory where F-Droid repo files are stored.
+  --unsigned-dir UNSIGNED_DIR
+                        Directory where unsigned app files are stored.
+  --language LANGUAGE   Language of the information to retrieve.
+  --force-metadata      Force overwrite existing metadata.
+  --force-version       Force updating version name and code even if they are
+                        already specified in the YML file.
+  --force-screenshots   Force overwrite existing screenshots.
+  --force-icons         Force overwrite existing icons.
+  --force-all           Force overwrite existing metadata, screenshots and
+                        icons.
+  --convert-apks        Convert APKS files to APK and sign them.
+  --sign-apk            Sign resulting APK files from APKS conversion.
+  --key-file KEY_FILE   Key file used to sign the APK, required if --convert-
+                        apks is used.
+  --cert-file CERT_FILE
+                        Cert file used to sign the APK, required if --convert-
+                        apks is used.
+  --certificate-password CERTIFICATE_PASSWORD
                         Password to sign the APK.
-  -btp BUILD_TOOLS_PATH, --build-tools-path BUILD_TOOLS_PATH
+  --build-tools-path BUILD_TOOLS_PATH
                         Path to Android SDK buildtools binaries.
-  -aep APK_EDITOR_PATH, --apk-editor-path APK_EDITOR_PATH
+  --apk-editor-path APK_EDITOR_PATH
                         Path to the ApkEditor.jar file.
-  -dls, --download-screenshots
-                        Download screenshots which will be stored in the repo directory.
-  -df DATA_FILE, --data-file DATA_FILE
-                        Path to the JSON formatted data file. Default: data.json located in the program directory.
-  -rf REPLACEMENT_FILE, --replacement-file REPLACEMENT_FILE
-                        JSON formatted file containing a dict with replacements for the package name of all found
-                        apps.
-  -lp LOG_PATH, --log-path LOG_PATH
-                        Path to the directory where to store the log files. Default: Program directory.
+  --download-screenshots
+                        Download screenshots which will be stored in the repo
+                        directory.
+  --data-file DATA_FILE
+                        Path to the JSON formatted data file. Default:
+                        data.json located in the program's directory.
+  --replacement-file REPLACEMENT_FILE
+                        JSON formatted file containing a dict with
+                        replacements for the package name of all found apps.
+  --log-path LOG_PATH   Path to the directory where to store the log files.
+                        Default: Program's directory.
+  --cookie-path COOKIE_PATH
+                        Path to a Netscape cookie file.
+  --use-eng-name        Use the English app name instead of the localized one.
+  --rename-files        Rename APK files to packageName_versionCode. Requires
+                        aapt2 and aapt2.
+  --skip-if-exists      Skip renaming if the file already exists. By default a
+                        numeric suffix is appended to the name.
+  --recompile-bad-apk   Recompile APK files that have CRC errors. File dates
+                        are preserved. Requires apktool.
+  --apktool-path APKTOOL_PATH
+                        Path to apktool. By default uses apktool.jar in the
+                        program's directory.
 ```
 
 Explanation
@@ -63,49 +88,61 @@ Explanation
 
 This program:
 
-* Needs to know where the metadata is located, it can infer this if you provide either the metadata or repo path.
+* Needs to know where the metadata is located, it can infer this if you provide either the metadata, repo or unsigned
+  path.
 * Depends on a data file, explained below.
 * Needs a language to be provided.
 * Requires AAPT and AAPT2.
 
-By default no data will be overwritten except for empty/dummy values.
+By default no data will be overwritten except for empty or dummy values.
 
-You can force overwriting all existing data (metadata, icons and screenshots) with `-fa`/`--force-all`, overwrite
-existing metadata with `-f/--force`, overwrite only the
-version numbers in the YML files with `-fv/--force-version`, overwrite the icons with `-fi`/`--force-icons` or overwrite
-the screenshots with `-fs`/`--foce-screenshots`. If `-fs`/`--foce-screenshots`/`-fa`/`--force-all` is used and
-screenshots already exist they will be moved to a backup directory in `/repo/backup`. The deletion of the backup files
-is up to the user (you).
+You can:
+
+- Force overwrite all existing data (metadata, icons and screenshots) with `--force-all`.
+- Force overwrite existing metadata with `--force-metadata`.
+- Force overwrite only the version values in the YML files with `--force-version`.
+- Force overwrite all the icons with `--force-icons`.
+- Force overwrite the screenshots with `--force-screenshots`.
+- Force use English application names with `--use-eng-name`.
+- Rename files to F-Droids default naming with `--rename-files` and skip renaming if file already exists
+  with `--skip-if-exists`.
+- Recompile APK files with CRC errors with `--recompile-bad-apk`. (This requires `--apktool-path`)
+
+If `--force-screenshots`/`--force-all` is used and screenshots already exist they will be moved to a backup directory
+in `/repo/backup`, the backup directory will be emptied before this move operation.
+The deletion of the backup files is up to the user (you).
 
 If the provided paths for the corresponding option don't end with `metadata`, `repo` or `unsigned` the program will
 terminate.
 
-If `-m`/`--metadata-dir` is provided only the YML files present in the `/metadata` directory will be processed, if there
+If `--metadata-dir` is provided only the YML files present in the `/metadata` directory will be processed, if there
 are APK files in the `/repo` directory that don't have a YML file they will not be created.
 
-If `-r`/`--repo-dir` is provided only the APK files present in the `/repo` directory will be processed, if there are YML
-files in the `/metadata` directory that don't have an existing APK file they wont be processed.
+If `--repo-dir` is provided only the APK files present in the `/repo` directory will be processed, if there are YML
+files in the `/metadata` directory that don't have an existing APK file they will not be processed.
 
-If `-u`/`--unsigned-dir` is provided only the APK files present in the `/unsigned` directory will be processed, APK
+If `--unsigned-dir` is provided only the APK files present in the `/unsigned` directory will be processed, APK
 files in the `repo` directory and YML files in the `metadata` directory that don't match any APK in the `unsigned`
-directory wont be processed.
+directory will not be processed.
 
-By default only the icons will be downloaded from the stores, if you want to also get the
-screenshots `-dls`/`--download-screenshots` must be used, they will be stored
-in `/repo/<package-id>/en-US/phoneScreenshots` regardless of the language used because that's the locale F-Droid
-defaults to.
+By default, only the icons will be downloaded from the stores, if you want to also get the
+screenshots `--download-screenshots` must be used, they will be stored in `/repo/<package-id>/en-US/phoneScreenshots`
+regardless of the language used because that's the locale F-Droid defaults to.
 
-APKS files can be converted to APK with [ApkEditor][4] by using `-ca`/`--convert-apks`, if APKS conversion is enabled
+APKS files can be converted to APK with [ApkEditor][4] by using `--convert-apks`, if APKS conversion is enabled
 then the program will require:
 
-- Certificate file path: To sign the resulting APK file. Use `-cf`/`--certificate-file`.
-- Key file path: To sign the resulting APK file. Use `-kf`/`--key-file`.
-- Certificate password: Only if the certificate is encrypted. Use `-cpw`/`--certificate-password`.
 - Path to the ApkEditor.jar file: To convert the APKS file to APK. This is the program that does all the work.
-  Use `-aep`/`--apk-editor-path`.
-- ApkSigner: It must be in your PATH or you can also specify the path with `-btp`/`--build-tools-path`.
+  Use `--apk-editor-path` to provide the path.
 
-The anti-features are detected base on some keywords, is not perfect:
+If `--sign-apk` is specified:
+
+- Certificate file path: To sign the resulting APK file. Use `--certificate-file`.
+- Key file path: To sign the resulting APK file. Use `--key-file`.
+- Certificate password: Only if the certificate is encrypted. Use `--certificate-password`.
+- ApkSigner: It must be in your PATH, or you can also specify the path with `--build-tools-path`.
+
+The anti-features are detected based on some keywords, is not perfect:
 
 * `NonFreeAssets` is always assumed.
 * If no repo is found `UpstreamNonFree` is assumed.
@@ -115,18 +152,19 @@ The anti-features are detected base on some keywords, is not perfect:
 
 The license extraction is done this way:
 
-1. If the app's website is a GitHub or a GitLab repository the license of the app is assumed to be the same than the
+1. If the app's website is a GitHub or a GitLab repository, the license of the app is assumed to be the same as the
    license of the repository.
 2. If the license from the repo doesn't match any licenses accepted by F-Droid (set in the `data` file) then "Other"
    will be used.
-3. If the app's website is not a repository "Copyright" will be assumed.
+3. If the app's website is not a repository, "Copyright" will be assumed.
 
 Packages not found and packages that had any data not found will be writen to a log file located by default in the same
-path than the program, the path can be configured with `-lp`/`--log-path`. They are also printed at the end.
+program's directory, the path can be configured with `--log-path`.
+They are also printed at the end.
 
 -------------------------
 
-Don't forget to run these two commands after all the download is completed:
+Remember to run these two commands after all the download is completed:
 
 ```console
 fdroid rewritemeta
@@ -148,14 +186,13 @@ The contents are as follows:
   used. Categories taken from the Play Store [official documentation][2].
 * **Locales**: List containing the official supported languages for the Play Store. Locales taken from
   the [official documentation][3].
-* **Icon_Relations**: Dict containing the relation between the directory name (key/left) and the icon size (
-  value/right). Icons are squares so only the one number is needed.
+* **Icon_Relations**: Dict containing the relation between the directory name (key/left) and
+  the icon size (value/right). Icons are squares so only the one number is needed.
 * **Regex_Patterns**: Dict containing the regex search patterns for data extraction for every supported store: key/left
-  is name of pattern,
-  value/right is the (regex) pattern.
+  is name of the pattern, value/right is the (regex) pattern.
 
-The default path for the data file is `<path-to-this-program>/data.json`, other path can be specified
-using `-df`/`--data-file`.
+The default path for the data file is `<path-to-this-program>/data.json`, another path can be specified
+using `--data-file`.
 
 -------------------------
 
@@ -164,9 +201,10 @@ using `-df`/`--data-file`.
 This is a JSON formatted file containing a single dict named `Replacements` which stores a dict containing search (key)
 and replace (value) mappings.
 
-The replacement file can be used to either replace parts of the package ID or all of it. After the first match all the
-rest search terms are skipped for the package, so a package can only be affected by one replacement at the same time.
-Included is an example file. Path to this file is specified with `-rf`/`--replacement-file`.
+The replacement file can be used to either replace parts of the package ID or all of it. After the first match, all the
+rest of the search terms are skipped for the package, so a package can only be affected by one replacement at the same
+time.
+Included is an example file. Path to this file is specified with `--replacement-file`.
 
 -------------------------
 
