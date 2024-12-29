@@ -1086,7 +1086,7 @@ def restore_dates(old_app_stats: os.stat_result,
 
     if platform.system() == "Windows" and setctime is not None:
         try:
-            setctime(apk_file, old_app_stats.st_birthtime)
+            setctime(apk_file, old_app_stats.st_ctime)
         except PermissionError as e:
             print(Fore.YELLOW + "\tWARNING: Couldn't restore old creation date. Permission denied.", end="\n\n")
             print(e, end="\n\n")
