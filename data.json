@@ -345,7 +345,7 @@
     "Play_Store": {
       "author_name_pattern": "div\\sclass=\"Vbfug\\sauoIOc\"><a\\shref[^>]+><span>(.+?)</span>",
       "author_email_pattern": "<div\\sclass=\"xFVDSb\">.+?</div><div\\sclass=\"pSEeg\">(.+?)</div>",
-      "name_pattern": "itemprop=\"name\">(.+?)</h1>",
+      "name_pattern": "itemprop=\"name\">(.+?)(?:</span>)?</h1>",
       "website_pattern": "<meta\\sname=\"appstore:developer_url\"\\scontent=\"([^\"]+)\"><meta",
       "category_pattern": "<span\\sjsname=\"V67aGc\"\\sclass=\"VfPpkd-vQzf8d\"\\saria-hidden=\"true\">([^<]+)<\/span><a\\sclass=\"WpHeLc\\sVfPpkd-mRLv6\\sVfPpkd-RLmnJb\"\\shref=\"\/store\/(?:apps\/category|search\\?)",
       "summary_pattern": "<div\\sclass=\"[^\"]+\"\\sdata-g-id=\"description\">(.+?)<br>",
