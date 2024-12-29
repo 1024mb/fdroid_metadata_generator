@@ -258,7 +258,7 @@ def restore_time(apk_file: str,
         try:
             from win32_setctime import setctime
 
-            setctime(recompiled_apk_path, orig_stats.st_birthtime)
+            setctime(recompiled_apk_path, orig_stats.st_ctime)
         except ImportError:
             pass
 
