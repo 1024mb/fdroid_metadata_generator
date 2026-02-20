@@ -44,7 +44,8 @@ def main():
                                              """
     Rename APK and APKS files based on the supplied pattern.
     If any placeholder contains multiple values they are all merged with a comma as the separator.
-    If any placeholder contains illegal characters or spaces they are all replaced with the supplied separator or '_' by default.
+    If any placeholder contains illegal characters or spaces they are all replaced with the supplied separator or '_' 
+    by default.
     
     Placeholders supported:
     ======================================
@@ -164,60 +165,60 @@ def main():
     if build_tools_path is None:
         if shutil.which("aapt") is None:
             print(Fore.RED + "ERROR: Could not find aapt executable in PATH. Please install it.")
-            exit(1)
+            sys.exit(1)
 
         if shutil.which("aapt2") is None:
             print("Could not find aapt2 executable in PATH. Please install it.")
-            exit(1)
+            sys.exit(1)
     else:
         if not os.path.exists(build_tools_path):
             print(Fore.RED + "ERROR: Provided aapt path doesn't exist.")
-            exit(1)
+            sys.exit(1)
         if not os.path.isdir(build_tools_path):
             print(Fore.RED + "ERROR: Provided aapt path is not a directory.")
-            exit(1)
+            sys.exit(1)
 
     if not os.path.exists(log_path):
         os.makedirs(log_path)
     elif not os.path.isdir(log_path):
         print(Fore.RED + "ERROR: Provided log path is not a directory.")
-        exit(1)
+        sys.exit(1)
 
     if convert_apks:
         if shutil.which("java") is None:
             print(Fore.RED + "ERROR: Java not found in PATH, can't convert .apks files to .apk.")
-            exit(1)
+            sys.exit(1)
 
         if apk_editor_path is None:
             print(Fore.RED + "ERROR: Please specify the full path to the ApkEditor JAR file.")
-            exit(1)
+            sys.exit(1)
         elif not os.path.isfile(apk_editor_path):
             print(Fore.RED + "ERROR: Invalid ApkEditor JAR path.")
-            exit(1)
+            sys.exit(1)
 
     if sign_apk:
         if build_tools_path is None and shutil.which("apksigner") is None:
             print(Fore.RED + "ERROR:Please install the build-tools package of the Android SDK if you want to convert "
                              "APKS files.")
             print(Fore.RED + "Apksigner not found.")
-            exit(1)
+            sys.exit(1)
 
         if key_file is None or cert_file is None:
             print(Fore.RED + "ERROR: Please provide the key and certificate files for APK signing.\n")
-            exit(1)
+            sys.exit(1)
         else:
             if not os.path.isfile(key_file):
                 print(Fore.RED + "ERROR: Invalid key file path.")
-                exit(1)
+                sys.exit(1)
 
             if not os.path.isfile(cert_file):
                 print(Fore.RED + "ERROR: Invalid cert file path.")
-                exit(1)
+                sys.exit(1)
 
     if (os.path.isfile(item_path) and os.path.splitext(item_path)[1].lower() != APK_EXTENSION
             and os.path.splitext(item_path)[1].lower() != APKS_EXTENSION):
         print(Fore.RED + "ERROR: Supplied path is not an APK or APKS file.")
-        exit(1)
+        sys.exit(1)
 
     errored_apps_list = []
 
@@ -690,7 +691,7 @@ def get_info(app_file_path: str,
         print(Fore.RED + "\tERROR: Couldn't remove the temp directory for {}. Permission denied.".format(app_filename),
               end="\n\n")
         print(e, end="\n\n")
-        exit(1)
+        sys.exit(1)
 
     if badging_content is None:
         return {}

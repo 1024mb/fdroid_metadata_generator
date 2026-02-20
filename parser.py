@@ -12,7 +12,6 @@ import tempfile
 import urllib.request
 from datetime import datetime
 from http.cookiejar import MozillaCookieJar
-from sys import exit
 from typing import Dict, List, Tuple, Optional
 from urllib.error import HTTPError
 
@@ -220,157 +219,157 @@ def main():
     if metadata_dir is None and repo_dir is None and unsigned_dir is None:
         print(Fore.RED + "ERROR: Please provide at least the metadata directory, "
                          "the repository directory or the unsigned directory.")
-        exit(1)
+        sys.exit(1)
 
     if metadata_dir is not None and repo_dir is not None and unsigned_dir is not None:
         print(Fore.RED + "ERROR: Please provide only the metadata, "
                          "the repository or the unsigned directory. Not all of them.")
-        exit(1)
+        sys.exit(1)
 
     if ((metadata_dir is not None and repo_dir is not None)
             or (repo_dir is not None and unsigned_dir is not None)
             or (metadata_dir is not None and unsigned_dir is not None)):
         print(Fore.RED + "ERROR: Please provide only one of the directories.")
-        exit(1)
+        sys.exit(1)
 
     if metadata_dir is not None:
         provided_dir = "metadata"
         if os.path.split(metadata_dir)[1] != "metadata":
             print(Fore.RED + "ERROR: Metadata directory path doesn't look like a "
                              "F-Droid repository metadata directory, aborting...")
-            exit(1)
+            sys.exit(1)
         elif not os.path.exists(metadata_dir):
             print(Fore.RED + "ERROR: Metadata directory path doesn't exist, aborting...")
-            exit(1)
+            sys.exit(1)
         elif not os.path.isdir(metadata_dir):
             print(Fore.RED + "ERROR: Invalid metadata directory, supplied path is not a directory")
-            exit(1)
+            sys.exit(1)
 
     if repo_dir is not None:
         provided_dir = "repo"
         if os.path.split(repo_dir)[1] != "repo":
             print(Fore.RED + "ERROR: Repo directory path doesn't look like a F-Droid repository directory, aborting...")
-            exit(1)
+            sys.exit(1)
         elif not os.path.exists(repo_dir):
             print(Fore.RED + "ERROR: Repo directory path doesn't exist, aborting...")
-            exit(1)
+            sys.exit(1)
         elif not os.path.isdir(repo_dir):
             print(Fore.RED + "ERROR: Invalid repo directory, supplied path is not a directory")
-            exit(1)
+            sys.exit(1)
 
     if unsigned_dir is not None:
         provided_dir = "unsigned"
         if os.path.split(unsigned_dir)[1] != "unsigned":
             print(Fore.RED + "ERROR: Unsigned directory path doesn't look like a F-Droid unsigned directory, "
                              "aborting...")
-            exit(1)
+            sys.exit(1)
         elif not os.path.exists(unsigned_dir):
             print(Fore.RED + "ERROR: Unsigned directory path doesn't exist, aborting...")
-            exit(1)
+            sys.exit(1)
         if not os.path.isdir(unsigned_dir):
             print(Fore.RED + "ERROR: Invalid unsigned directory, supplied path is not a directory")
-            exit(1)
+            sys.exit(1)
 
     if not os.path.isfile(data_file):
         print(Fore.RED + "ERROR: Invalid data file.")
-        exit(1)
+        sys.exit(1)
 
     if build_tools_path is None:
         if shutil.which("aapt") is None:
             print(Fore.RED + "ERROR: Please install aapt before running this program.")
-            exit(1)
+            sys.exit(1)
 
         if shutil.which("aapt2") is None:
             print(Fore.RED + "ERROR: Please install aapt2 before running this program.")
-            exit(1)
+            sys.exit(1)
 
     if replacement_file is not None and not os.path.isfile(replacement_file):
         print(Fore.RED + "ERROR: Invalid replacement file.")
-        exit(1)
+        sys.exit(1)
 
     if recompile_bad_apk:
         if not os.path.exists(apktool_path):
             print(Fore.RED + "ERROR: Apktool JAR file was not found. Required to recompile APK files.")
-            exit(1)
+            sys.exit(1)
 
         if shutil.which("java") is None:
             print(Fore.RED + "ERROR: Please install java if you want to recompile APK files.")
-            exit(1)
+            sys.exit(1)
 
     try:
         data_file_stream = open(data_file, mode="r", encoding="utf_8")
     except FileNotFoundError:
         print(Fore.RED + "ERROR: Data file not found.")
-        exit(1)
+        sys.exit(1)
     except PermissionError:
         print(Fore.RED + "ERROR: Couldn't read data file. Permission denied.")
-        exit(1)
+        sys.exit(1)
 
     try:
         data_file_content = json.load(data_file_stream)  # type: dict
     except json.decoder.JSONDecodeError as e:
         print(Fore.RED + "ERROR: Error decoding data file.", end="\n\n")
         print(e)
-        exit(1)
-
-    data_file_stream.close()
+        sys.exit(1)
+    finally:
+        data_file_stream.close()
 
     if not check_data_file(data_file_content=data_file_content):
-        exit(1)
+        sys.exit(1)
 
     lang = sanitize_lang(lang=language)
 
     if lang not in data_file_content["Locales"]["Play_Store"]:
         print(Fore.RED + "ERROR: Invalid language.")
-        exit(1)
+        sys.exit(1)
 
     if cookie_path is None:
         print(Fore.YELLOW + "WARNING: Cookie file not specified, Amazon scraping wont work.", end="\n\n")
     else:
         if not os.path.isfile(cookie_path):
             print(Fore.RED + "ERROR: Invalid cookie file path.")
-            exit(1)
+            sys.exit(1)
 
     if convert_apks:
         if build_tools_path is None and shutil.which("apksigner") is None:
             print(Fore.RED + "ERROR: Please install the build-tools package of "
                              "the Android SDK if you want to convert APKS files.")
-            exit(1)
+            sys.exit(1)
 
         if build_tools_path is not None:
             if (not os.path.isdir(build_tools_path) or
                     not (os.path.isfile(os.path.join(build_tools_path, "apksigner")) or
                          os.path.isfile(os.path.join(build_tools_path, "apksigner.bat")))):
                 print(Fore.RED + "ERROR: Invalid build-tools path.")
-                exit(1)
+                sys.exit(1)
 
         if shutil.which("java") is None:
             print(Fore.RED + "ERROR: Please install java if you want to convert APKS files.")
-            exit(1)
+            sys.exit(1)
 
         if apk_editor_path is None:
             print(Fore.RED + "ERROR: Please specify the full path of the ApkEditor.jar file.")
-            exit(1)
+            sys.exit(1)
         elif not os.path.isfile(apk_editor_path):
             print(Fore.RED + "ERROR: Invalid ApkEditor.jar path.")
-            exit(1)
+            sys.exit(1)
 
         if sign_apk:
             if key_file is None or cert_file is None:
                 print(Fore.RED + "ERROR: Please provide the key and certificate files for APK signing.", end="\n\n")
-                exit(1)
+                sys.exit(1)
             else:
                 if not os.path.isfile(key_file):
                     print(Fore.RED + "ERROR: Invalid key file path.")
-                    exit(1)
+                    sys.exit(1)
 
                 if not os.path.isfile(cert_file):
                     print(Fore.RED + "ERROR: Invalid cert file path.")
-                    exit(1)
+                    sys.exit(1)
 
     if os.path.exists(log_path) and not os.path.isdir(log_path):
         print(Fore.RED + "Invalid log path.")
-        exit(1)
+        sys.exit(1)
 
     if not os.path.exists(log_path):
         os.makedirs(log_path)
@@ -513,7 +512,7 @@ def main():
                       use_eng_name=use_eng_name)
     else:
         print(Fore.RED + "ERROR: We shouldn't have got here.")
-        exit(1)
+        sys.exit(1)
 
 
 def get_new_packagename(replacement_file: Optional[str],
@@ -535,11 +534,11 @@ def get_new_packagename(replacement_file: Optional[str],
         except PermissionError as e:
             print(Fore.RED + "ERROR: Couldn't read replacement file. Permission denied.", end="\n\n")
             print(e, end="\n\n")
-            exit(1)
+            sys.exit(1)
         except json.decoder.JSONDecodeError as e:
             print(Fore.RED + "ERROR: Couldn't load replacement file. Decoding error.", end="\n\n")
             print(e, end="\n\n")
-            exit(1)
+            sys.exit(1)
 
         for term in replacements.keys():
             search_term = term
@@ -1593,9 +1592,7 @@ def get_icon(resp_int: str,
 
     for dirname in data_file_content["Icon_Relations"].keys():
         try:
-            os.makedirs(os.path.join(repo_dir, dirname))
-        except FileExistsError:
-            pass
+            os.makedirs(os.path.join(repo_dir, dirname), exist_ok=True)
         except PermissionError:
             print(Fore.RED + "\tERROR: Can't create directory for \"" + dirname +
                   "\". Permission denied, skipping icon download for this package.", end="\n\n")
