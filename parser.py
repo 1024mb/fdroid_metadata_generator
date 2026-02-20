@@ -22,6 +22,7 @@ from colorama import Fore, init
 
 import recompiler
 import renamer
+from common import get_program_dir
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0"
 
@@ -1950,13 +1951,6 @@ def sanitize_lang_apkcombo(language: str,
         language = "en"
 
     return language
-
-
-def get_program_dir() -> str:
-    if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
-    elif __file__:
-        return os.path.abspath(os.path.dirname(__file__))
 
 
 if __name__ == "__main__":

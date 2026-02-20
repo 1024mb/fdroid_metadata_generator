@@ -20,6 +20,8 @@ from typing import List, Optional
 
 from colorama import Fore, init
 
+from common import get_program_dir
+
 APK_EXTENSION = ".apk"
 APKS_EXTENSION = ".apks"
 
@@ -593,13 +595,6 @@ def join_values(list_values: list) -> str:
             new_name = new_name[:-1]
 
     return new_name
-
-
-def get_program_dir() -> str:
-    if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
-    elif __file__:
-        return os.path.abspath(os.path.dirname(__file__))
 
 
 def translate_sdk(sdk: str,

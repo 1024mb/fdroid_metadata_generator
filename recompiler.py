@@ -14,6 +14,8 @@ from typing import Optional
 
 from colorama import Fore, init
 
+from common import get_program_dir
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -75,13 +77,6 @@ def main():
     start_processing(path=path,
                      apktool_path=apktool_path,
                      build_tools_path=build_tools_path)
-
-
-def get_program_dir() -> str:
-    if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
-    elif __file__:
-        return os.path.abspath(os.path.dirname(__file__))
 
 
 def start_processing(path: str,
