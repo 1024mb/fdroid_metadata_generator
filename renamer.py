@@ -2,8 +2,6 @@
 Rename APK and APKS files to new names based on a supplied pattern.
 """
 
-from __future__ import annotations
-
 import argparse
 import copy
 import json
@@ -16,7 +14,6 @@ import sys
 import tempfile
 import textwrap
 from datetime import datetime
-from typing import List, Optional
 
 from colorama import Fore, init
 
@@ -128,27 +125,27 @@ def main():
     if args.build_tools_path is None:
         build_tools_path = args.build_tools_path
     else:
-        build_tools_path = os.path.abspath(args.build_tools_path[0])  # type: Optional[str]
+        build_tools_path = os.path.abspath(args.build_tools_path[0])  # type: str | None
 
     if args.key_file is None:
         key_file = args.key_file
     else:
-        key_file = os.path.abspath(args.key_file[0])  # type: Optional[str]
+        key_file = os.path.abspath(args.key_file[0])  # type: str | None
 
     if args.cert_file is None:
         cert_file = args.cert_file
     else:
-        cert_file = os.path.abspath(args.cert_file[0])  # type: Optional[str]
+        cert_file = os.path.abspath(args.cert_file[0])  # type: str | None
 
     if args.certificate_password is None:
         certificate_password = args.certificate_password
     else:
-        certificate_password = args.certificate_password[0]  # type: Optional[str]
+        certificate_password = args.certificate_password[0]  # type: str | None
 
     if args.apk_editor_path is None:
         apk_editor_path = args.apk_editor_path
     else:
-        apk_editor_path = os.path.abspath(args.apk_editor_path[0])  # type: Optional[str]
+        apk_editor_path = os.path.abspath(args.apk_editor_path[0])  # type: str | None
 
     if args.log_path is None:
         log_path = get_program_dir()
@@ -248,14 +245,14 @@ def main():
 def process_path(item_path: str,
                  pattern: str,
                  separator: str = "_",
-                 errored_apps_list: Optional[list] = None,
-                 build_tools_path: Optional[str] = None,
+                 errored_apps_list: list[str] | None = None,
+                 build_tools_path: str | None = None,
                  convert_apks: bool = False,
-                 apk_editor_path: Optional[str] = None,
+                 apk_editor_path: str | None = None,
                  sign_apk: bool = False,
-                 key_file: Optional[str] = None,
-                 cert_file: Optional[str] = None,
-                 certificate_password: Optional[str] = None,
+                 key_file: str | None = None,
+                 cert_file: str | None = None,
+                 certificate_password: str | None = None,
                  skip_if_exists: bool = False) -> None:
     """
     | Rename APK and APKS files based on the supplied pattern.
@@ -335,14 +332,14 @@ def process_path(item_path: str,
 def process_file(item_path: str,
                  pattern: str,
                  separator: str,
-                 errored_apps_list: Optional[list] = None,
-                 build_tools_path: Optional[str] = None,
+                 errored_apps_list: list[str] | None = None,
+                 build_tools_path: str | None = None,
                  convert_apks: bool = False,
-                 apk_editor_path: Optional[str] = None,
+                 apk_editor_path: str | None = None,
                  sign_apk: bool = False,
-                 key_file: Optional[str] = None,
-                 cert_file: Optional[str] = None,
-                 certificate_password: Optional[str] = None,
+                 key_file: str | None = None,
+                 cert_file: str | None = None,
+                 certificate_password: str | None = None,
                  skip_if_exists: bool = False) -> None:
 
     apk_info = {}
@@ -407,7 +404,7 @@ def rename_file(file_path: str,
                 apk_info: dict,
                 separator: str = "_",
                 errored_apps_list: list = None,
-                skip_if_exists: bool = False) -> Optional[str]:
+                skip_if_exists: bool = False) -> str | None:
     """
     Rename file and return new filename.
 
@@ -710,10 +707,10 @@ def get_info(app_file_path: str,
 
 def badging(app_file_path: str,
             is_apks: bool,
-            apks_content: List[str],
+            apks_content: list[str],
             temp_path: str,
             build_tools_path: str = None,
-            errored_apps_list: list = None) -> Optional[str]:
+            errored_apps_list: list = None) -> str | None:
 
     output = ""
 
@@ -863,7 +860,7 @@ def parse_badging(badging_content: str,
 
 
 def pre_process_apks(apks_file: str,
-                     temp_path: str) -> Optional[str]:
+                     temp_path: str) -> str | None:
     """
     Pre-process APKS files, extracting their content and saving them in a temporary directory returning the path to
     that temporary directory.

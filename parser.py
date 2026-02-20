@@ -12,9 +12,10 @@ import tempfile
 import urllib.request
 from datetime import datetime
 from http.cookiejar import MozillaCookieJar
-from typing import Dict, List, Tuple, Optional
+from typing import Literal, Any
 from urllib.error import HTTPError
 
+import pydantic
 import requests
 import ruamel.yaml
 from PIL import Image
@@ -22,17 +23,14 @@ from colorama import Fore, init
 
 import recompiler
 import renamer
-from common import get_program_dir
-
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0"
+from common import get_program_dir, AppData, RegexPatterns, SupportedStore
 
 __version__ = "1.0.1"
 
 
 def main():
     parser = argparse.ArgumentParser(prog="fdroid-metadata-generator",
-                                     description="Extract information from the PlayStore to F-Droid YML metadata "
-                                                 "files.")
+                                     description="Extract metadata from online stores for use with F-Droid Server.")
     parser.add_argument("--version",
                         action="version",
                         version=f"%(prog)s v{__version__}")
@@ -137,85 +135,98 @@ def main():
 
     init(autoreset=True)
 
+    metadata_dir: str | None
     if args.metadata_dir is None:
         metadata_dir = args.metadata_dir
     else:
-        metadata_dir = os.path.abspath(args.metadata_dir[0])  # type: Optional[str]
+        metadata_dir = os.path.abspath(args.metadata_dir[0])
 
+    repo_dir: str | None
     if args.repo_dir is None:
         repo_dir = args.repo_dir
     else:
-        repo_dir = os.path.abspath(args.repo_dir[0])  # type: Optional[str]
+        repo_dir = os.path.abspath(args.repo_dir[0])
 
+    unsigned_dir: str | None
     if args.unsigned_dir is None:
         unsigned_dir = args.unsigned_dir
     else:
-        unsigned_dir = os.path.abspath(args.unsigned_dir[0])  # type: Optional[str]
+        unsigned_dir = os.path.abspath(args.unsigned_dir[0])
 
+    build_tools_path: str | None
     if args.build_tools_path is None:
         build_tools_path = args.build_tools_path
     else:
-        build_tools_path = os.path.abspath(args.build_tools_path[0])  # type: Optional[str]
+        build_tools_path = os.path.abspath(args.build_tools_path[0])
 
+    key_file: str | None
     if args.key_file is None:
         key_file = args.key_file
     else:
-        key_file = os.path.abspath(args.key_file[0])  # type: Optional[str]
+        key_file = os.path.abspath(args.key_file[0])
 
+    cert_file: str | None
     if args.cert_file is None:
         cert_file = args.cert_file
     else:
-        cert_file = os.path.abspath(args.cert_file[0])  # type: Optional[str]
+        cert_file = os.path.abspath(args.cert_file[0])
 
+    certificate_password: str | None
     if args.certificate_password is None:
         certificate_password = args.certificate_password
     else:
-        certificate_password = args.certificate_password[0]  # type: Optional[str]
+        certificate_password = args.certificate_password[0]
 
+    apk_editor_path: str | None
     if args.apk_editor_path is None:
         apk_editor_path = args.apk_editor_path
     else:
-        apk_editor_path = os.path.abspath(args.apk_editor_path[0])  # type: Optional[str]
+        apk_editor_path = os.path.abspath(args.apk_editor_path[0])
 
+    replacement_file: str | None
     if args.replacement_file is None:
         replacement_file = args.replacement_file
     else:
-        replacement_file = os.path.abspath(args.replacement_file[0])  # type: Optional[str]
+        replacement_file = os.path.abspath(args.replacement_file[0])
 
+    cookie_path: str | None
     if args.cookie_path is None:
         cookie_path = args.cookie_path
     else:
-        cookie_path = os.path.abspath(args.cookie_path[0])  # type: Optional[str]
+        cookie_path = os.path.abspath(args.cookie_path[0])
 
+    data_file: str | None
     if args.data_file is None:
         data_file = os.path.join(get_program_dir(), "data.json")
     else:
         data_file = os.path.abspath(args.data_file[0])
 
+    log_path: str | None
     if args.log_path is None:
         log_path = get_program_dir()
     else:
         log_path = os.path.abspath(args.log_path[0])
 
+    apktool_path: str
     if args.apktool_path is None:
         apktool_path = os.path.join(get_program_dir(), "apktool.jar")
     else:
         apktool_path = os.path.abspath(args.apktool_path[0])
 
-    language = args.language[0]  # type: str
+    language: str = args.language[0]
 
-    force_metadata = args.force_metadata  # type: bool
-    force_version = args.force_version  # type: bool
-    force_icons = args.force_icons  # type: bool
-    force_screenshots = args.force_screenshots  # type: bool
-    force_all = args.force_all  # type: bool
-    convert_apks = args.convert_apks  # type: bool
-    sign_apk = args.sign_apk  # type: bool
-    download_screenshots = args.download_screenshots  # type: bool
-    use_eng_name = args.use_eng_name  # type: bool
-    rename_files = args.rename_files  # type: bool
-    skip_if_exists = args.skip_if_exists  # type: bool
-    recompile_bad_apk = args.recompile_bad_apk  # type: bool
+    force_metadata: bool = args.force_metadata
+    force_version: bool = args.force_version
+    force_icons: bool = args.force_icons
+    force_screenshots: bool = args.force_screenshots
+    force_all: bool = args.force_all
+    convert_apks: bool = args.convert_apks
+    sign_apk: bool = args.sign_apk
+    download_screenshots: bool = args.download_screenshots
+    use_eng_name: bool = args.use_eng_name
+    rename_files: bool = args.rename_files
+    skip_if_exists: bool = args.skip_if_exists
+    recompile_bad_apk: bool = args.recompile_bad_apk
 
     if metadata_dir is None and repo_dir is None and unsigned_dir is None:
         print(Fore.RED + "ERROR: Please provide at least the metadata directory, "
@@ -315,12 +326,16 @@ def main():
     finally:
         data_file_stream.close()
 
-    if not check_data_file(data_file_content=data_file_content):
+    try:
+        app_data = AppData.model_validate(data_file_content, strict=True)
+    except pydantic.ValidationError as e:
+        print(Fore.RED + "ERROR: Error validating data file.", end="\n\n")
+        print(e)
         sys.exit(1)
 
     lang = sanitize_lang(lang=language)
 
-    if lang not in data_file_content["Locales"]["Play_Store"]:
+    if lang not in app_data.Locales.Play_Store:
         print(Fore.RED + "ERROR: Invalid language.")
         sys.exit(1)
 
@@ -375,8 +390,8 @@ def main():
     if not os.path.exists(log_path):
         os.makedirs(log_path)
 
-    package_list = {}
-    package_and_version = {}
+    package_list: dict[str, str] = {}
+    package_and_version: dict[str, tuple[int, str]] = {}
 
     if force_all:
         force_metadata = True
@@ -470,7 +485,7 @@ def main():
                       force_screenshots=force_screenshots,
                       force_icons=force_icons,
                       dl_screenshots=download_screenshots,
-                      data_file_content=data_file_content,
+                      app_data=app_data,
                       log_path=log_path,
                       cookie_path=cookie_path,
                       use_eng_name=use_eng_name)
@@ -507,7 +522,7 @@ def main():
                       force_screenshots=force_screenshots,
                       force_icons=force_icons,
                       dl_screenshots=download_screenshots,
-                      data_file_content=data_file_content,
+                      app_data=app_data,
                       log_path=log_path,
                       cookie_path=cookie_path,
                       use_eng_name=use_eng_name)
@@ -516,8 +531,8 @@ def main():
         sys.exit(1)
 
 
-def get_new_packagename(replacement_file: Optional[str],
-                        base_name: str) -> Optional[str]:
+def get_new_packagename(replacement_file: str | None,
+                        base_name: str) -> str | None:
     if replacement_file is not None:
         try:
             replace_stream = open(replacement_file, encoding="utf_8", mode="r")
@@ -531,7 +546,7 @@ def get_new_packagename(replacement_file: Optional[str],
             return None
 
         try:
-            replacements = json.load(replace_stream)["Replacements"]  # type: Dict[str, str]
+            replacements = json.load(replace_stream)["Replacements"]  # type: dict[str, str]
         except PermissionError as e:
             print(Fore.RED + "ERROR: Couldn't read replacement file. Permission denied.", end="\n\n")
             print(e, end="\n\n")
@@ -584,8 +599,8 @@ def convert_apks_to_apk(apks_dir: str,
                         sign_apk: bool,
                         key_file: str,
                         cert_file: str,
-                        password: Optional[str],
-                        build_tools_path: Optional[str]) -> None:
+                        password: str | None,
+                        build_tools_path: str | None) -> None:
     proc = False
 
     for file in os.listdir(apks_dir):
@@ -609,7 +624,7 @@ def convert_apks_to_apk(apks_dir: str,
         print(Fore.GREEN + "No APKS files were converted.", end="\n\n")
 
 
-def map_apk_to_packagename(repo_dir: str) -> Dict:
+def map_apk_to_packagename(repo_dir: str) -> dict[str, str]:
     mapped_apk_files = {}
 
     for apk_file in os.listdir(repo_dir):
@@ -621,7 +636,7 @@ def map_apk_to_packagename(repo_dir: str) -> Dict:
 
 
 def get_version(package_content: dict,
-                package_and_version: Dict[str, Tuple[int, str]],
+                package_and_version: dict[str, tuple[int, str]],
                 new_package: str,
                 force_metadata: bool,
                 force_version: bool) -> None:
@@ -641,8 +656,8 @@ def get_version(package_content: dict,
             package_content["CurrentVersion"] = "0"
 
 
-def retrieve_info(package_list: Dict[str, str],
-                  package_and_version: Dict[str, Tuple[int, str]],
+def retrieve_info(package_list: dict[str, str],
+                  package_and_version: dict[str, tuple[int, str]],
                   lang: str,
                   metadata_dir: str,
                   repo_dir: str,
@@ -651,23 +666,22 @@ def retrieve_info(package_list: Dict[str, str],
                   force_screenshots: bool,
                   force_icons: bool,
                   dl_screenshots: bool,
-                  data_file_content: dict,
+                  app_data: AppData,
                   log_path: str,
-                  cookie_path: Optional[str],
+                  cookie_path: str | None,
                   use_eng_name: bool) -> None:
-
     proc = False
 
-    not_found_packages = []
-    authorname_not_found_packages = []
-    authoremail_not_found_packages = []
-    name_not_found_packages = []
-    website_not_found_packages = []
-    summary_not_found_packages = []
-    description_not_found_packages = []
-    category_not_found_packages = []
-    icon_not_found_packages = []
-    screenshots_not_found_packages = []
+    not_found_packages: list[str] = []
+    authorname_not_found_packages: list[str] = []
+    authoremail_not_found_packages: list[str] = []
+    name_not_found_packages: list[str] = []
+    website_not_found_packages: list[str] = []
+    summary_not_found_packages: list[str] = []
+    description_not_found_packages: list[str] = []
+    category_not_found_packages: list[str] = []
+    icon_not_found_packages: list[str] = []
+    screenshots_not_found_packages: list[str] = []
 
     for pkg in package_list.keys():
         package = pkg
@@ -695,7 +709,7 @@ def retrieve_info(package_list: Dict[str, str],
                 icons_exist = is_icon_complete(package=package,
                                                version_code=package_and_version[new_package][0],
                                                repo_dir=repo_dir,
-                                               data_file_content=data_file_content)
+                                               app_data=app_data)
                 screenshots_exist = screenshot_exist(package=package,
                                                      repo_dir=repo_dir)
 
@@ -714,7 +728,7 @@ def retrieve_info(package_list: Dict[str, str],
             icons_exist = is_icon_complete(package=package,
                                            version_code=package_and_version[new_package][0],
                                            repo_dir=repo_dir,
-                                           data_file_content=data_file_content)
+                                           app_data=app_data)
 
             if metadata_exist and icons_exist:
                 if package_and_version[new_package][0] is None:
@@ -750,10 +764,13 @@ def retrieve_info(package_list: Dict[str, str],
 
         proc = True
 
-        resp_list = []
+        resp_list: list[str] = []
 
         skip_package = False
-        store_name = None
+        # This initialization is only for typechecking, if store_name is not set inside the for loop below, then this
+        # package is skipped by setting `skip_package` to True, and the default value set here is simply not used at
+        # all.
+        store_name: SupportedStore = "Play_Store"
 
         for _ in [1]:
             print(Fore.GREEN + "\tDownloading Play Store page...", end="\n\n")
@@ -768,7 +785,8 @@ def retrieve_info(package_list: Dict[str, str],
             if get_amazon_page(resp_list=resp_list,
                                language=lang,
                                new_package=new_package,
-                               cookie_path=cookie_path):
+                               cookie_path=cookie_path,
+                               user_agent=app_data.User_Agent):
                 store_name = "Amazon_Store"
                 break
             resp_list = []
@@ -777,7 +795,8 @@ def retrieve_info(package_list: Dict[str, str],
             if get_apkcombo_page(resp_list=resp_list,
                                  language=lang,
                                  new_package=new_package,
-                                 data_file_content=data_file_content):
+                                 app_data=app_data,
+                                 user_agent=app_data.User_Agent):
                 store_name = "Apkcombo_Store"
                 break
             resp_list = []
@@ -822,7 +841,7 @@ def retrieve_info(package_list: Dict[str, str],
                              summary_not_found_packages=summary_not_found_packages,
                              description_not_found_packages=description_not_found_packages,
                              force_metadata=force_metadata,
-                             data_file_content=data_file_content,
+                             app_data=app_data,
                              store_name=store_name,
                              use_eng_name=use_eng_name)
         else:
@@ -838,7 +857,7 @@ def retrieve_info(package_list: Dict[str, str],
                          summary_not_found_packages=summary_not_found_packages,
                          description_not_found_packages=description_not_found_packages,
                          force_metadata=force_metadata,
-                         data_file_content=data_file_content,
+                         app_data=app_data,
                          store_name=store_name,
                          use_eng_name=use_eng_name)
 
@@ -860,11 +879,11 @@ def retrieve_info(package_list: Dict[str, str],
             icons_exist = is_icon_complete(package=package,
                                            version_code=package_and_version[new_package][0],
                                            repo_dir=repo_dir,
-                                           data_file_content=data_file_content)
+                                           app_data=app_data)
 
         if force_icons or not icons_exist:
             print(Fore.GREEN + "\tDownloading icons...", end="\n\n")
-            # Function to download icons need to check force_icons because there might be cases where one of the icons
+            # Function to download icons needs to check force_icons because there might be cases where one of the icons
             # is missing, with screenshots as long as there is at least one file we assume it's complete.
             get_icon(resp_int=resp_int,
                      package=package,
@@ -872,12 +891,12 @@ def retrieve_info(package_list: Dict[str, str],
                      version_code=package_and_version[new_package][0],
                      repo_dir=repo_dir,
                      force_icons=force_icons,
-                     data_file_content=data_file_content,
+                     app_data=app_data,
                      icon_not_found_packages=icon_not_found_packages,
                      store_name=store_name)
-            print(Fore.GREEN + "\tFinished downloading icons for {}.".format(package), end="\n\n")
+            print(Fore.GREEN + f"\tFinished downloading icons for {package}.", end="\n\n")
         else:
-            print(Fore.BLUE + "\tAll icon files for {} already exist, skipping...".format(package), end="\n\n")
+            print(Fore.BLUE + f"\tAll icon files for {package} already exist, skipping...", end="\n\n")
 
         if dl_screenshots:
             if not force_screenshots and screenshots_exist is None:
@@ -890,7 +909,7 @@ def retrieve_info(package_list: Dict[str, str],
                                 package=package,
                                 new_package=new_package,
                                 screenshots_not_found_packages=screenshots_not_found_packages,
-                                data_file_content=data_file_content,
+                                app_data=app_data,
                                 screenshots_exist=screenshots_exist,
                                 store_name=store_name)
             else:
@@ -971,33 +990,22 @@ def get_metadata(package_content: dict,
                  resp: str,
                  resp_int: str,
                  package: str,
-                 name_not_found_packages: list,
-                 authorname_not_found_packages: list,
-                 authoremail_not_found_packages: list,
-                 website_not_found_packages: list,
-                 category_not_found_packages: list,
-                 summary_not_found_packages: list,
-                 description_not_found_packages: list,
+                 name_not_found_packages: list[str],
+                 authorname_not_found_packages: list[str],
+                 authoremail_not_found_packages: list[str],
+                 website_not_found_packages: list[str],
+                 category_not_found_packages: list[str],
+                 summary_not_found_packages: list[str],
+                 description_not_found_packages: list[str],
                  force_metadata: bool,
-                 data_file_content: dict,
-                 store_name: str,
+                 app_data: AppData,
+                 store_name: SupportedStore,
                  use_eng_name: bool) -> None:
-    author_name_pattern = data_file_content["Regex_Patterns"][store_name]["author_name_pattern"]
-    author_email_pattern = data_file_content["Regex_Patterns"][store_name]["author_email_pattern"]
-    name_pattern = data_file_content["Regex_Patterns"][store_name]["name_pattern"]
-    website_pattern = data_file_content["Regex_Patterns"][store_name]["website_pattern"]
-    category_pattern = data_file_content["Regex_Patterns"][store_name]["category_pattern"]
-    summary_pattern = data_file_content["Regex_Patterns"][store_name]["summary_pattern"]
-    summary_pattern_alt = data_file_content["Regex_Patterns"][store_name]["summary_pattern_alt"]
-    description_pattern = data_file_content["Regex_Patterns"][store_name]["description_pattern"]
-    gitlab_repo_id_pattern = data_file_content["Regex_Patterns"][store_name]["gitlab_repo_id_pattern"]
-    ads_pattern = data_file_content["Regex_Patterns"][store_name]["ads_pattern"]
-    inapp_purchases_pattern = data_file_content["Regex_Patterns"][store_name]["inapp_purchases_pattern"]
-    tracking_pattern = data_file_content["Regex_Patterns"][store_name]["tracking_pattern"]
+    store_patterns: RegexPatterns = getattr(app_data.Regex_Patterns, store_name)
 
-    if name_pattern != "":
+    if store_patterns.name_pattern != "":
         get_name(package_content=package_content,
-                 name_pattern=name_pattern,
+                 name_pattern=store_patterns.name_pattern,
                  resp=resp,
                  resp_int=resp_int,
                  package=package,
@@ -1005,17 +1013,17 @@ def get_metadata(package_content: dict,
                  force_metadata=force_metadata,
                  use_eng_name=use_eng_name)
 
-    if author_name_pattern != "":
+    if store_patterns.author_name_pattern != "":
         get_author_name(package_content=package_content,
-                        author_name_pattern=author_name_pattern,
+                        author_name_pattern=store_patterns.author_name_pattern,
                         resp=resp,
                         package=package,
                         authorname_not_found_packages=authorname_not_found_packages,
                         force_metadata=force_metadata)
 
-    if author_email_pattern != "":
+    if store_patterns.author_email_pattern != "":
         get_author_email(package_content=package_content,
-                         author_email_pattern=author_email_pattern,
+                         author_email_pattern=store_patterns.author_email_pattern,
                          resp=resp,
                          package=package,
                          authoremail_not_found_packages=authoremail_not_found_packages,
@@ -1023,44 +1031,44 @@ def get_metadata(package_content: dict,
 
     website = ""
 
-    if website_pattern != "":
+    if store_patterns.website_pattern != "":
         website = get_website(package_content=package_content,
-                              website_pattern=website_pattern,
+                              website_pattern=store_patterns.website_pattern,
                               resp=resp,
                               package=package,
                               website_not_found_packages=website_not_found_packages,
                               force_metadata=force_metadata)
 
     get_repo_info_and_license(package_content=package_content,
-                              gitlab_repo_id_pattern=gitlab_repo_id_pattern,
+                              gitlab_repo_id_pattern=store_patterns.gitlab_repo_id_pattern,
                               website=website,
-                              data_file_content=data_file_content,
+                              license_list=app_data.Licenses,
                               force_metadata=force_metadata)
 
-    if category_pattern != "":
+    if store_patterns.category_pattern != "":
         get_categories(package_content=package_content,
-                       category_pattern=category_pattern,
+                       category_pattern=store_patterns.category_pattern,
                        resp_int=resp_int,
                        package=package,
                        category_not_found_packages=category_not_found_packages,
-                       data_file_content=data_file_content,
+                       app_data=app_data,
                        force_metadata=force_metadata,
                        store_name=store_name)
 
-    if summary_pattern != "":
+    if store_patterns.summary_pattern != "":
         if package_content.get("Summary", "") == "" or package_content.get("Summary") is None or force_metadata:
             if not get_summary(resp=resp,
                                package_content=package_content,
-                               pattern=summary_pattern):
-                if not get_summary(resp=resp,
-                                   package_content=package_content,
-                                   pattern=summary_pattern_alt):
+                               pattern=store_patterns.summary_pattern):
+                if store_patterns.summary_pattern_alt == "" or not get_summary(resp=resp,
+                                                                               package_content=package_content,
+                                                                               pattern=store_patterns.summary_pattern_alt):
                     print(Fore.YELLOW + "\tWARNING: Couldn't get the summary.", end="\n\n")
                     summary_not_found_packages.append(package)
 
-    if description_pattern != "":
+    if store_patterns.description_pattern != "":
         get_description(package_content=package_content,
-                        description_pattern=description_pattern,
+                        description_pattern=store_patterns.description_pattern,
                         resp=resp,
                         package=package,
                         description_not_found_packages=description_not_found_packages,
@@ -1070,18 +1078,18 @@ def get_metadata(package_content: dict,
                       website=website,
                       resp_int=resp_int,
                       force_metadata=force_metadata,
-                      ads_pattern=ads_pattern,
-                      inapp_purchases_pattern=inapp_purchases_pattern,
-                      tracking_pattern=tracking_pattern)
+                      ads_pattern=store_patterns.ads_pattern,
+                      inapp_purchases_pattern=store_patterns.inapp_purchases_pattern,
+                      tracking_pattern=store_patterns.tracking_pattern)
 
 
 def get_anti_features(package_content: dict,
                       website: str,
                       resp_int: str,
                       force_metadata: bool,
-                      ads_pattern: str,
-                      inapp_purchases_pattern: str,
-                      tracking_pattern: str) -> None:
+                      ads_pattern: Literal[""] | re.Pattern[str],
+                      inapp_purchases_pattern: Literal[""] | re.Pattern[str],
+                      tracking_pattern: Literal[""] | re.Pattern[str]) -> None:
 
     if (package_content.get("AntiFeatures", "") == "" or package_content.get("AntiFeatures") is None
             or None in package_content.get("AntiFeatures") or force_metadata):
@@ -1091,15 +1099,15 @@ def get_anti_features(package_content: dict,
             anti_features = ["UpstreamNonFree", "NonFreeAssets"]
 
         if ads_pattern != "":
-            if re.search(ads_pattern, resp_int) is not None:
+            if ads_pattern.search(resp_int) is not None:
                 anti_features.append("Ads")
 
         if tracking_pattern != "":
-            if re.search(tracking_pattern, resp_int) is not None:
+            if tracking_pattern.search(resp_int) is not None:
                 anti_features.append("Tracking")
 
         if inapp_purchases_pattern != "":
-            if re.search(inapp_purchases_pattern, resp_int) is not None:
+            if inapp_purchases_pattern.search(resp_int) is not None:
                 anti_features.append("NonFreeDep")
                 anti_features.append("NonFreeNet")
 
@@ -1107,14 +1115,14 @@ def get_anti_features(package_content: dict,
 
 
 def get_author_email(package_content: dict,
-                     author_email_pattern: str,
+                     author_email_pattern: re.Pattern[str],
                      resp: str,
                      package: str,
-                     authoremail_not_found_packages: list,
+                     authoremail_not_found_packages: list[str],
                      force_metadata: bool) -> None:
     if package_content.get("AuthorEmail", "") == "" or package_content.get("AuthorEmail") is None or force_metadata:
         try:
-            email_grps = re.findall(author_email_pattern, resp)
+            email_grps = author_email_pattern.findall(resp)
 
             for item in email_grps:
                 if "@" not in item:
@@ -1128,14 +1136,14 @@ def get_author_email(package_content: dict,
 
 
 def get_description(package_content: dict,
-                    description_pattern: str,
+                    description_pattern: re.Pattern[str],
                     resp: str,
                     package: str,
-                    description_not_found_packages: list,
+                    description_not_found_packages: list[str],
                     force_metadata: bool) -> None:
     if package_content.get("Description", "") == "" or package_content.get("Description") is None or force_metadata:
         try:
-            description_extracted = html.unescape(re.search(description_pattern, resp).group(1))
+            description_extracted = html.unescape(description_pattern.search(resp).group(1))
             description_extracted = description_extracted.replace("<br>", "\n").replace("<br />", "\n").strip()
 
             description = ""
@@ -1154,11 +1162,11 @@ def get_description(package_content: dict,
 
 
 def get_name(package_content: dict,
-             name_pattern: str,
+             name_pattern: re.Pattern[str],
              resp: str,
              resp_int: str,
              package: str,
-             name_not_found_packages: list,
+             name_not_found_packages: list[str],
              force_metadata: bool,
              use_eng_name: bool) -> None:
     if package_content.get("Name", "") == "" or package_content.get("Name") is None or force_metadata:
@@ -1169,36 +1177,36 @@ def get_name(package_content: dict,
             resp_final = resp
 
         try:
-            package_content["Name"] = html.unescape(re.search(name_pattern, resp_final).group(1)).strip()
+            package_content["Name"] = html.unescape(name_pattern.search(resp_final).group(1)).strip()
         except (IndexError, AttributeError):
             print(Fore.YELLOW + "\tWARNING: Couldn't get the application name.", end="\n\n")
             name_not_found_packages.append(package)
 
 
 def get_categories(package_content: dict,
-                   category_pattern: str,
+                   category_pattern: re.Pattern[str],
                    resp_int: str,
                    package: str,
-                   category_not_found_packages: list,
-                   data_file_content: dict,
+                   category_not_found_packages: list[str],
+                   app_data: AppData,
                    force_metadata: bool,
-                   store_name: str) -> None:
+                   store_name: SupportedStore) -> None:
     if store_name == "Amazon_store":
-        # Amazon Appstore doesn't show the app's categories in the app page.
+        # Amazon Appstore doesn't show the app's categories on the app page.
         return
 
     if (package_content.get("Categories", "") == "" or
             package_content.get("Categories", "") == ["fdroid_repo"] or
             package_content.get("Categories") is None or
             None in package_content.get("Categories") or force_metadata):
-        ret_grp = re.search(category_pattern, resp_int)
+        ret_grp = category_pattern.search(resp_int)
 
         if ret_grp is not None:
             cat_list = extract_categories(ret_grp=ret_grp,
                                           resp_int=resp_int,
-                                          data_file_content=data_file_content,
+                                          app_data=app_data,
                                           store_name=store_name)
-            if cat_list is None:
+            if len(cat_list) == 0:
                 print(Fore.YELLOW + "\tWARNING: Couldn't get the categories.", end="\n\n")
                 category_not_found_packages.append(package)
             else:
@@ -1208,54 +1216,57 @@ def get_categories(package_content: dict,
             category_not_found_packages.append(package)
 
 
-def extract_categories(ret_grp: re.Match,
+def extract_categories(ret_grp: re.Match[str],
                        resp_int: str,
-                       data_file_content: dict,
-                       store_name: str) -> Optional[list]:
+                       app_data: AppData,
+                       store_name: SupportedStore) -> list[str]:
+    sport_category_pattern: str = getattr(app_data.Sport_Category_Pattern, store_name)
 
-    sport_category_pattern = data_file_content["Sport_Category_Pattern"][store_name]
-
-    cat_list = []
+    cat_list: list[str] = []
 
     for cat in ret_grp.groups():
         if html.unescape(cat).strip() == "Sports":
             if (sport_category_pattern is not None
                     and sport_category_pattern != ""
                     and resp_int.find(sport_category_pattern)):
-                cat_list.append(data_file_content["Game_Categories"][html.unescape(cat).strip()])
-            elif data_file_content["App_Categories"][html.unescape(cat).strip()] != "":
-                cat_list.append(data_file_content["App_Categories"][html.unescape(cat).strip()])
+                cat_list.append(app_data.Game_Categories[html.unescape(cat).strip()])
+            elif app_data.App_Categories[html.unescape(cat).strip()] != "":
+                cat_list.append(app_data.App_Categories[html.unescape(cat).strip()])
             else:
                 cat_list.append(html.unescape(cat).strip())
             continue
 
-        if cat.strip() != "" and html.unescape(cat).strip() in data_file_content["Game_Categories"].keys():
-            cat_list.append(data_file_content["Game_Categories"][html.unescape(cat).strip()])
+        if cat.strip() != "" and html.unescape(cat).strip() in app_data.Game_Categories.keys():
+            cat_list.append(app_data.Game_Categories[html.unescape(cat).strip()])
             continue
 
-        if cat.strip() != "" and html.unescape(cat).strip() in data_file_content["App_Categories"].keys():
-            if data_file_content["App_Categories"][html.unescape(cat).strip()] != "":
-                cat_list.append(data_file_content["App_Categories"][html.unescape(cat).strip()])
+        if cat.strip() != "" and html.unescape(cat).strip() in app_data.App_Categories.keys():
+            if app_data.App_Categories[html.unescape(cat).strip()] != "":
+                cat_list.append(app_data.App_Categories[html.unescape(cat).strip()])
             else:
                 cat_list.append(html.unescape(cat).strip())
-
-    if len(cat_list) == 0:
-        return None
 
     return cat_list
 
 
 def get_repo_info_and_license(package_content: dict,
-                              gitlab_repo_id_pattern: str,
+                              gitlab_repo_id_pattern: Literal[""] | re.Pattern[str],
                               website: str,
-                              data_file_content: dict,
+                              license_list: list[str],
                               force_metadata: bool) -> None:
     if "https://github.com/" in website or "http://github.com/" in website:
         repo = re.sub(r"(https?)(://github.com/[^/]+/[^/]+).*", r"https\2", website)
         api_repo = re.sub(r"(https?)(://github.com/)([^/]+/[^/]+).*",
                           r"https://api.github.com/repos/\3", website)
 
-        get_license(package_content, force_metadata, api_repo, data_file_content)
+        app_license = get_license(package_content=package_content,
+                                  force_metadata=force_metadata,
+                                  api_repo=api_repo,
+                                  license_list=license_list)
+
+        # it might be None if it wasn't found or if the package YAML file already had one
+        if app_license is not None:
+            package_content["License"] = license
 
         if (package_content.get("IssueTracker", "") == "" or package_content.get("IssueTracker") is None
                 or force_metadata):
@@ -1273,22 +1284,26 @@ def get_repo_info_and_license(package_content: dict,
         repo = re.sub(r"(https?)(://gitlab.com/[^/]+/[^/]+).*", r"https\2", website)
         git_repo = urllib.request.urlopen(repo).read().decode()
 
-        try:
-            repo_id = re.search(gitlab_repo_id_pattern, git_repo).groups(1)
-            api_repo = "https://gitlab.com/api/v4/projects/" + repo_id[0].strip() + "?license=yes"
-            get_license(package_content, force_metadata, api_repo, data_file_content)
-        except (IndexError, AttributeError):
-            pass
+        if gitlab_repo_id_pattern != "":
+            try:
+                repo_id = gitlab_repo_id_pattern.search(git_repo).groups(1)
+                api_repo = "https://gitlab.com/api/v4/projects/" + repo_id[0].strip() + "?license=yes"
+                app_license = get_license(package_content, force_metadata, api_repo, license_list)
+
+                if app_license is not None:
+                    package_content["License"] = license
+            except (IndexError, AttributeError):
+                pass
 
         if (package_content.get("IssueTracker", "") == "" or package_content.get("IssueTracker") is None
                 or force_metadata):
-            package_content["IssueTracker"] = repo + "/-/issues"
+            package_content["IssueTracker"] = repo + "/issues"
 
         if package_content.get("SourceCode", "") == "" or package_content.get("SourceCode") is None or force_metadata:
             package_content["SourceCode"] = repo
 
         if package_content.get("Changelog", "") == "" or package_content.get("Changelog") is None or force_metadata:
-            package_content["Changelog"] = repo + "/-/releases"
+            package_content["Changelog"] = repo + "/releases"
 
         if package_content.get("Repo", "") == "" or package_content.get("Repo") is None or force_metadata:
             package_content["Repo"] = repo
@@ -1298,15 +1313,15 @@ def get_repo_info_and_license(package_content: dict,
 
 
 def get_website(package_content: dict,
-                website_pattern: str,
+                website_pattern: re.Pattern[str],
                 resp: str,
                 package: str,
-                website_not_found_packages: list,
+                website_not_found_packages: list[str],
                 force_metadata: bool) -> str:
     website = ""
 
     try:
-        website = (re.search(website_pattern, resp).group(1).strip())
+        website = (website_pattern.search(resp).group(1).strip())
     except (IndexError, AttributeError):
         print(Fore.YELLOW + "\tWARNING: Couldn't get the app website.", end="\n\n")
         website_not_found_packages.append(package)
@@ -1316,27 +1331,28 @@ def get_website(package_content: dict,
 
     if website != "" and (package_content.get("WebSite", "") == "" or package_content.get("WebSite") is None
                           or force_metadata):
+        # noinspection HttpUrlsUsage
         package_content["WebSite"] = website.replace("http://", "https://")
 
     return website
 
 
 def get_author_name(package_content: dict,
-                    author_name_pattern: str,
+                    author_name_pattern: re.Pattern[str],
                     resp: str,
                     package: str,
-                    authorname_not_found_packages: list,
+                    authorname_not_found_packages: list[str],
                     force_metadata: bool) -> None:
     try:
         if package_content.get("AuthorName", "") == "" or package_content.get("AuthorName") is None or force_metadata:
-            package_content["AuthorName"] = html.unescape(re.search(author_name_pattern, resp).group(1)).strip()
+            package_content["AuthorName"] = html.unescape(author_name_pattern.search(resp).group(1)).strip()
     except (IndexError, AttributeError):
         print(Fore.YELLOW + "\tWARNING: Couldn't get the Author name.", end="\n\n")
         authorname_not_found_packages.append(package)
 
 
 def get_play_store_page(new_package: str,
-                        resp_list: list,
+                        resp_list: list[str],
                         language: str) -> bool:
 
     playstore_url = "https://play.google.com/store/apps/details?id="
@@ -1370,9 +1386,9 @@ def get_play_store_page(new_package: str,
 
 def get_summary(resp: str,
                 package_content: dict,
-                pattern: str) -> bool:
+                pattern: re.Pattern[str]) -> bool:
     try:
-        summary = html.unescape(re.search(pattern, resp).group(1)).strip()
+        summary = html.unescape(pattern.search(resp).group(1)).strip()
         summary = re.sub(r"(<[^>]+>)", "", summary).strip()
 
         while len(summary) > 80:
@@ -1391,31 +1407,33 @@ def get_summary(resp: str,
 def get_license(package_content: dict,
                 force_metadata: bool,
                 api_repo: str,
-                data_file_content: dict) -> None:
+                license_list: list[str]) -> str | None:
     if (package_content.get("License", "") == "" or package_content.get("License", "") == "Unknown"
             or package_content.get("License") is None or force_metadata):
         try:
             api_load = urllib.request.urlopen(api_repo).read().decode()
         except HTTPError:
             print(Fore.YELLOW + "\tCouldn't download the api response for the license.", end="\n\n")
-            return
+            return None
 
         try:
             resp_api = json.loads(api_load)  # type: dict
         except json.JSONDecodeError:
             print(Fore.YELLOW + "\tCouldn't load the api response for the license.", end="\n\n")
-            return
+            return None
 
         if resp_api["license"] is not None:
-            package_content["License"] = normalize_license(data_file_content, resp_api["license"]["key"])
+            return normalize_license(license_list, resp_api["license"]["key"])
         else:
-            package_content["License"] = "No License"
+            return "No License"
+    else:
+        return None
 
 
-def normalize_license(data_file_content: dict,
+def normalize_license(license_list: list[str],
                       license_key: str) -> str:
     license_dict = {}
-    for key in data_file_content["Licenses"]:
+    for key in license_list:
         license_dict[key.lower().strip()] = key
 
     if license_key.lower().strip() in license_dict.keys():
@@ -1430,10 +1448,10 @@ def get_screenshots(resp: str,
                     repo_dir: str,
                     package: str,
                     new_package: str,
-                    screenshots_not_found_packages: list,
-                    data_file_content: dict,
+                    screenshots_not_found_packages: list[str],
+                    app_data: AppData,
                     screenshots_exist: bool,
-                    store_name: str) -> None:
+                    store_name: SupportedStore) -> None:
     # Locale directory must be en-US and not the real locale because that's what F-Droid
     # defaults to and this program does not do multi-lang download.
     screenshots_path = os.path.join(repo_dir, package, "en-US", "phoneScreenshots")
@@ -1442,27 +1460,32 @@ def get_screenshots(resp: str,
     if os.path.exists(screenshots_path) and ".noscreenshots" in os.listdir(screenshots_path):
         print(Fore.BLUE + "\tSkipping screenshots download for {}.".format(package), end="\n\n")
         return
+    store_patterns: RegexPatterns = getattr(app_data.Regex_Patterns, store_name)
 
-    screenshot_pattern = data_file_content["Regex_Patterns"][store_name]["screenshot_pattern"]
-
-    if screenshot_pattern == "":
+    if store_patterns.screenshot_pattern == "":
         return
+    else:
+        screenshot_pattern = store_patterns.screenshot_pattern
 
     print(Fore.GREEN + "\tDownloading screenshots for {}...".format(package), end="\n\n")
 
+    img_url_list: list[str]
     if store_name == "Apkcombo_Store":
-        screenshot_pattern_alt = data_file_content["Regex_Patterns"][store_name]["screenshot_pattern_alt"]
+        if store_patterns.screenshot_pattern_alt == "":
+            return
+        else:
+            screenshot_pattern_alt = store_patterns.screenshot_pattern_alt
 
         try:
-            scrn_div = re.search(screenshot_pattern, resp).group(1)
+            scrn_div = screenshot_pattern.search(resp).group(1)
         except (AttributeError, IndexError):
             print(Fore.YELLOW + "\tCouldn't get screenshots URLs for {}".format(new_package), end="\n\n")
             screenshots_not_found_packages.append(package)
             return
 
-        img_url_list = re.findall(screenshot_pattern_alt, scrn_div)
+        img_url_list = screenshot_pattern_alt.findall(scrn_div)
     else:
-        img_url_list = re.findall(screenshot_pattern, resp)  # type: List[str]
+        img_url_list = screenshot_pattern.findall(resp)
 
     if len(img_url_list) == 0:
         print(Fore.YELLOW + "\tCouldn't get screenshots URLs for {}".format(new_package), end="\n\n")
@@ -1526,9 +1549,9 @@ def get_screenshots(resp: str,
 
 
 def extract_icon_url(resp_int: str,
-                     icon_pattern: str) -> Optional[str]:
+                     icon_pattern: re.Pattern[str]) -> str | None:
     try:
-        icon_base_url = re.search(icon_pattern, resp_int).group(1)
+        icon_base_url = icon_pattern.search(resp_int).group(1)
     except (IndexError, AttributeError):
         return None
 
@@ -1539,9 +1562,9 @@ def extract_icon_url(resp_int: str,
 
 
 def extract_icon_url_alt(resp_int: str,
-                         icon_pattern_alt: str) -> Optional[str]:
+                         icon_pattern_alt: re.Pattern[str]) -> str | None:
     try:
-        icon_base_url_alt = re.search(icon_pattern_alt, resp_int).group(1)
+        icon_base_url_alt = icon_pattern_alt.search(resp_int).group(1)
     except (IndexError, AttributeError):
         return None
 
@@ -1554,16 +1577,15 @@ def extract_icon_url_alt(resp_int: str,
 def get_icon(resp_int: str,
              package: str,
              new_package: str,
-             version_code: Optional[int],
+             version_code: int | None,
              repo_dir: str,
              force_icons: bool,
-             data_file_content: dict,
-             icon_not_found_packages: list,
-             store_name: str) -> None:
-    icon_pattern = data_file_content["Regex_Patterns"][store_name]["icon_pattern"]
-    icon_pattern_alt = data_file_content["Regex_Patterns"][store_name]["icon_pattern_alt"]
+             app_data: AppData,
+             icon_not_found_packages: list[str],
+             store_name: SupportedStore) -> None:
+    store_patterns: RegexPatterns = getattr(app_data.Regex_Patterns, store_name)
 
-    if icon_pattern == "":
+    if store_patterns.icon_pattern == "":
         return
 
     if version_code is None or version_code == 0:
@@ -1575,15 +1597,15 @@ def get_icon(resp_int: str,
 
     icon_base_url_alt = None
 
-    icon_base_url = extract_icon_url(resp_int, icon_pattern)
+    icon_base_url = extract_icon_url(resp_int, store_patterns.icon_pattern)
 
     if icon_base_url is None:
-        if icon_pattern_alt == "":
+        if store_patterns.icon_pattern_alt == "":
             print(Fore.YELLOW + "\tCouldn't extract icon URL for {}.".format(new_package), end="\n\n")
             icon_not_found_packages.append(package)
             return
         else:
-            icon_base_url_alt = extract_icon_url_alt(resp_int, icon_pattern_alt)
+            icon_base_url_alt = extract_icon_url_alt(resp_int, store_patterns.icon_pattern_alt)
             if icon_base_url_alt is None:
                 print(Fore.YELLOW + "\tCouldn't extract icon URL for {}.".format(new_package), end="\n\n")
                 icon_not_found_packages.append(package)
@@ -1591,7 +1613,7 @@ def get_icon(resp_int: str,
 
     filename = package + "." + str(version_code) + ".png"
 
-    for dirname in data_file_content["Icon_Relations"].keys():
+    for dirname in app_data.Icon_Relations.keys():
         try:
             os.makedirs(os.path.join(repo_dir, dirname), exist_ok=True)
         except PermissionError:
@@ -1602,13 +1624,13 @@ def get_icon(resp_int: str,
 
     if icon_base_url is not None:
         if store_name == "Play_Store" or store_name == "Apkcombo_Store":
-            for dirname in data_file_content["Icon_Relations"].keys():
+            for dirname in app_data.Icon_Relations.keys():
                 icon_path = os.path.join(repo_dir, dirname, filename)
 
                 if os.path.exists(icon_path) and not force_icons:
                     continue
 
-                url = icon_base_url + data_file_content["Icon_Relations"][dirname]
+                url = icon_base_url + app_data.Icon_Relations[dirname]
 
                 try:
                     urllib.request.urlretrieve(url, icon_path)
@@ -1618,10 +1640,9 @@ def get_icon(resp_int: str,
                     print(Fore.YELLOW + "\tCouldn't write icon file for {}. Permission denied.".format(dirname))
                     return
         elif store_name == "Amazon_Store":
-
             main_icon_path = ""
 
-            for dirname in data_file_content["Icon_Relations"].keys():
+            for dirname in app_data.Icon_Relations.keys():
 
                 icon_path = os.path.join(repo_dir, dirname, filename)
 
@@ -1641,28 +1662,28 @@ def get_icon(resp_int: str,
                         return
 
                 orig_img = Image.open(main_icon_path)
-                resized_img = orig_img.resize((int(data_file_content["Icon_Relations"][dirname]),
-                                               int(data_file_content["Icon_Relations"][dirname])))
+                resized_img = orig_img.resize((int(app_data.Icon_Relations[dirname]),
+                                               int(app_data.Icon_Relations[dirname])))
                 resized_img.save(icon_path)
                 orig_img.close()
 
     elif icon_base_url_alt is not None:
         if store_name == "Play_Store":
-            for dirname in data_file_content["Icon_Relations"].keys():
+            for dirname in app_data.Icon_Relations.keys():
                 icon_path = os.path.join(repo_dir, dirname, filename)
 
                 if os.path.exists(icon_path) and not force_icons:
                     continue
 
-                url = (icon_base_url_alt + data_file_content["Icon_Relations"][dirname] + "-h" +
-                       data_file_content["Icon_Relations"][dirname])  # type: str
+                url = (icon_base_url_alt + app_data.Icon_Relations[dirname] + "-h" +
+                       app_data.Icon_Relations[dirname])  # type: str
 
                 try:
                     urllib.request.urlretrieve(url, icon_path)
                 except urllib.error.HTTPError:
-                    print(Fore.YELLOW + "\tCouldn't download icon for {}.".format(dirname))
+                    print(Fore.YELLOW + f"\tCouldn't download icon for {dirname}.")
                 except PermissionError:
-                    print(Fore.YELLOW + "\tCouldn't write icon file for {}. Permission denied.".format(dirname))
+                    print(Fore.YELLOW + f"\tCouldn't write icon file for {dirname}. Permission denied.")
 
 
 def sanitize_lang(lang: str) -> str:
@@ -1732,17 +1753,17 @@ def is_metadata_complete(package_content: dict) -> bool:
 
 
 def is_icon_complete(package: str,
-                     version_code: Optional[int],
+                     version_code: int | None,
                      repo_dir: str,
-                     data_file_content: dict) -> bool:
+                     app_data: AppData) -> bool:
     if version_code is None:  # The correct filename can't be set so check for this value in parent function.
         return True
 
     filename = package + "." + str(version_code) + ".png"
 
-    icon_relations = {}
+    icon_relations: dict[str, bool] = {}
 
-    for key in data_file_content["Icon_Relations"].keys():
+    for key in app_data.Icon_Relations.keys():
         icon_relations[key] = False
 
     for dirname in icon_relations.keys():
@@ -1792,13 +1813,13 @@ def write_yml(metadata_dir: str,
 
 
 def load_yml(metadata_dir: str,
-             package: str) -> Optional[Dict]:
+             package: str) -> dict[str, Any] | None:
     if os.path.exists(os.path.join(metadata_dir, package + ".yml")):
         try:
             stream = open(os.path.join(metadata_dir, package + ".yml"), "r", encoding="utf_8")
 
             yaml = ruamel.yaml.YAML(typ="safe")
-            package_content = yaml.load(stream)  # type:Dict
+            package_content: dict[str, Any] = yaml.load(stream)
 
             stream.close()
 
@@ -1814,7 +1835,7 @@ def load_yml(metadata_dir: str,
         return {}
 
 
-def write_not_found_log(items: list,
+def write_not_found_log(items: list[str],
                         file_name: str,
                         log_path: str) -> None:
     today_date = datetime.today().strftime("%Y%m%d_%H%M%S")
@@ -1834,10 +1855,11 @@ def write_not_found_log(items: list,
             return
 
 
-def get_amazon_page(resp_list: list,
+def get_amazon_page(resp_list: list[str],
                     language: str,
                     new_package: str,
-                    cookie_path: Optional[str]) -> bool:
+                    cookie_path: str | None,
+                    user_agent: str) -> bool:
 
     if cookie_path is None:
         print(Fore.YELLOW + "\tCookie file was not specified. Amazon Appstore page download will not be performed.",
@@ -1854,7 +1876,7 @@ def get_amazon_page(resp_list: list,
     sess.cookies.load()
 
     sess.headers = {
-        "User-Agent": USER_AGENT,
+        "User-Agent": user_agent,
         "Accept-Language": language + "," + alt_language
     }
 
@@ -1874,7 +1896,7 @@ def get_amazon_page(resp_list: list,
         resp_int = resp
     else:
         sess.headers = {
-            "User-Agent": USER_AGENT,
+            "User-Agent": user_agent,
             "Accept-Language": "en-US,en"
         }
 
@@ -1892,23 +1914,24 @@ def get_amazon_page(resp_list: list,
     return True
 
 
-def get_apkcombo_page(resp_list: list,
+def get_apkcombo_page(resp_list: list[str],
                       language: str,
                       new_package: str,
-                      data_file_content: dict) -> bool:
+                      app_data: AppData,
+                      user_agent: str) -> bool:
 
     url_int = "https://apkcombo.com/xxxx/" + new_package
 
     alt_language = re.sub(r"-.+", "", language)
     new_language = sanitize_lang_apkcombo(language=alt_language,
-                                          data_file_content=data_file_content)
+                                          app_data=app_data)
 
     url = "https://apkcombo.com/" + new_language + "/xxxx/" + new_package
 
     sess = requests.Session()
 
     sess.headers = {
-        "User-Agent": USER_AGENT,
+        "User-Agent": user_agent,
         "Accept-Language": language + "," + alt_language
     }
 
@@ -1923,7 +1946,7 @@ def get_apkcombo_page(resp_list: list,
         resp_int = resp
     else:
         sess.headers = {
-            "User-Agent": USER_AGENT,
+            "User-Agent": user_agent,
             "Accept-Language": "en-US,en"
         }
 
@@ -1941,11 +1964,11 @@ def get_apkcombo_page(resp_list: list,
 
 
 def sanitize_lang_apkcombo(language: str,
-                           data_file_content: dict) -> str:
+                           app_data: AppData) -> str:
     if language == "in":
         language = "id"
 
-    if language not in data_file_content["Locales"]["Apkcombo_Store"]:
+    if language not in app_data.Locales.Apkcombo_Store:
         print(Fore.YELLOW + "\tThe language {} is not available in Apkcombo, English will be used instead.".
               format(language))
         language = "en"

@@ -4,3 +4,4 @@ ruamel.yaml~=0.19.1
 colorama~=0.4.6
 requests~=2.32.5
 pillow~=12.1.1
+pydantic~=2.12.5
