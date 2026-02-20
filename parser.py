@@ -1304,6 +1304,9 @@ def get_website(package_content: dict,
         print(Fore.YELLOW + "\tWARNING: Couldn't get the app website.", end="\n\n")
         website_not_found_packages.append(package)
 
+    if website == "about:invalid#navigation":
+        website = ""
+
     if website != "" and (package_content.get("WebSite", "") == "" or package_content.get("WebSite") is None
                           or force_metadata):
         package_content["WebSite"] = website.replace("http://", "https://")
