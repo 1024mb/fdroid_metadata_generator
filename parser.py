@@ -26,9 +26,16 @@ import renamer
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0"
 
+__version__ = "1.0.1"
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Parser for PlayStore information to F-Droid YML metadata files.")
+    parser = argparse.ArgumentParser(prog="fdroid-metadata-generator",
+                                     description="Extract information from the PlayStore to F-Droid YML metadata "
+                                                 "files.")
+    parser.add_argument("--version",
+                        action="version",
+                        version=f"%(prog)s v{__version__}")
     parser.add_argument("--metadata-dir",
                         help="Directory where F-Droid metadata files are stored.",
                         type=str,
