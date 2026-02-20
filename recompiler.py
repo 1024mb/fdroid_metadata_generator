@@ -14,6 +14,8 @@ from typing import Optional
 
 from colorama import Fore, init
 
+from common import get_program_dir
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -39,17 +41,17 @@ def main():
 
         if not os.path.exists(build_tools_path):
             print(Fore.RED + "ERROR: Build tools path doesn't exist.")
-            exit(1)
+            sys.exit(1)
 
         if not os.path.isdir(build_tools_path):
             print(Fore.RED + "ERROR: Build Tools Path is not a directory.")
-            exit(1)
+            sys.exit(1)
     else:
         build_tools_path = args.build_tools_path
 
         if shutil.which("aapt") is None:
             print(Fore.RED + "ERROR: aapt was not found in PATH.")
-            exit(1)
+            sys.exit(1)
 
     if args.apktool_path is None:
         apktool_path = os.path.join(get_program_dir(), "apktool.jar")
@@ -58,30 +60,23 @@ def main():
 
     if shutil.which("java") is None:
         print(Fore.RED + "ERROR: Java is missing from PATH.")
-        exit(1)
+        sys.exit(1)
 
     if not os.path.exists(path):
         print(Fore.RED + "ERROR: Supplied path doesn't exist.")
-        exit(1)
+        sys.exit(1)
 
     if not os.path.isfile(apktool_path):
         print(Fore.RED + "ERROR: Invalid Apktool path.")
-        exit(1)
+        sys.exit(1)
 
     if os.path.isfile(path) and os.path.splitext(path)[1].lower() != ".apk":
         print(Fore.RED + "ERROR: Specified file path is not an APK file (needs .apk extension).")
-        exit(1)
+        sys.exit(1)
 
     start_processing(path=path,
                      apktool_path=apktool_path,
                      build_tools_path=build_tools_path)
-
-
-def get_program_dir() -> str:
-    if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
-    elif __file__:
-        return os.path.abspath(os.path.dirname(__file__))
 
 
 def start_processing(path: str,
