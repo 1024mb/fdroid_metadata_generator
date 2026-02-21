@@ -1266,7 +1266,7 @@ def get_repo_info_and_license(package_content: dict,
 
         # it might be None if it wasn't found or if the package YAML file already had one
         if app_license is not None:
-            package_content["License"] = license
+            package_content["License"] = app_license
 
         if (package_content.get("IssueTracker", "") == "" or package_content.get("IssueTracker") is None
                 or force_metadata):
@@ -1417,7 +1417,7 @@ def get_license(package_content: dict,
             return None
 
         try:
-            resp_api = json.loads(api_load)  # type: dict
+            resp_api: dict[str, Any] = json.loads(api_load)
         except json.JSONDecodeError:
             print(Fore.YELLOW + "\tCouldn't load the api response for the license.", end="\n\n")
             return None
