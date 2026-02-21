@@ -25,7 +25,7 @@ import recompiler
 import renamer
 from common import get_program_dir, AppData, RegexPatterns, SupportedStore
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 
 
 def main():
