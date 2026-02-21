@@ -10,7 +10,6 @@ import shutil
 import subprocess
 import sys
 import zipfile
-from typing import Optional
 
 from colorama import Fore, init
 
@@ -81,7 +80,7 @@ def main():
 
 def start_processing(path: str,
                      apktool_path: str,
-                     build_tools_path: Optional[str] = None) -> None:
+                     build_tools_path: str | None = None) -> None:
     """
     Start processing of `path` and check files for CRC errors, if none are found, skip the file otherwise recompile it.
 
@@ -117,10 +116,9 @@ def start_processing(path: str,
 
 
 def process_path(path: str,
-                 command_decompile_orig: list,
-                 command_compile_orig: list,
-                 build_tools_path: Optional[str]) -> None:
-
+                 command_decompile_orig: list[str],
+                 command_compile_orig: list[str],
+                 build_tools_path: str | None) -> None:
     if os.path.isdir(path):
         command_decompile_orig.insert(6, os.path.join(path, "decompiled_apk"))
         command_compile_orig.append(os.path.join(path, "decompiled_apk"))
@@ -142,9 +140,9 @@ def process_path(path: str,
 
 
 def process_directory(path: str,
-                      command_decompile_orig: list,
-                      command_compile_orig: list,
-                      build_tools_path: Optional[str]) -> None:
+                      command_decompile_orig: list[str],
+                      command_compile_orig: list[str],
+                      build_tools_path: str | None) -> None:
     processed_files = []
 
     for item in os.listdir(path):
@@ -165,12 +163,12 @@ def process_directory(path: str,
 
 
 def process_file(path: str,
-                 command_decompile_orig: list,
-                 command_compile_orig: list,
-                 build_tools_path: Optional[str],
+                 command_decompile_orig: list[str],
+                 command_compile_orig: list[str],
+                 build_tools_path: str | None,
                  apk_file: str,
                  apk_basename: str,
-                 processed_files: Optional[list] = None) -> None:
+                 processed_files: list[str] | None = None) -> None:
     if os.path.isfile(apk_file) and apk_basename.lower().endswith(".apk"):
         if check_apk(apk_path=apk_file):
             print(Fore.BLUE + "Skipping OK file: {}".format(apk_basename))
@@ -187,7 +185,8 @@ def process_file(path: str,
         command_compile[6] = recompiled_apk_path
 
         if build_tools_path is not None:
-            command_compile.insert(4, ["--aapt", build_tools_path])
+            command_compile.insert(4, "--aapt")
+            command_compile.insert(5, build_tools_path)
 
         if not decompile_apk(command_decompile=command_decompile,
                              working_path=path):
@@ -221,7 +220,7 @@ def check_apk(apk_path: str) -> bool:
         return False
 
 
-def decompile_apk(command_decompile: list,
+def decompile_apk(command_decompile: list[str],
                   working_path: str) -> bool:
     try:
         subprocess.run(command_decompile, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
@@ -233,7 +232,7 @@ def decompile_apk(command_decompile: list,
         return False
 
 
-def recompile_apk(command_compile: list,
+def recompile_apk(command_compile: list[str],
                   recompiled_apk_path: str) -> bool:
     try:
         subprocess.run(command_compile, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
