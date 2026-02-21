@@ -388,7 +388,7 @@
       "summary_pattern_alt": "",
       "description_pattern": "(?s)<div class=\"text-description ton\">\\s+(.+?)<div class=\"show-more\" style=\"position: absolute\"></div>",
       "screenshot_pattern": "(?s)<div class=\"gallery beauty-scroll mb-14\" id=\"gallery-screenshots\">(.+?)</div>",
-      "screenshot_pattern_alt": "\\s+<a href=\"(.+?)=w[0-9]+-h[0-9]+-rw\"><img src=\"[^\"]*\" data-src=\".+?=w[0-9]+-h[0-9]+-rw\" alt=\"[^\"]*\" class=\"[^\"]*\"></a>",
+      "screenshot_pattern_alt": "\\s+<a\\s+data-href=\"(.+?)=w[0-9]+-h[0-9]+-rw\"\\s+href=\"[^\"]*\"><img\\s+src=\"[^\"]*\"\\s+data-src=\".+?=w[0-9]+-h[0-9]+-rw\"\\s+alt=\"[^\"]*\"\\s+class=\"[^\"]*\"></a>",
       "icon_pattern": "<div class=\"avatar\">\\s+<img src=\"/[^\"]*\" data-src=\"([^\"]+=s)[0-9]+-rw\" class=\"[^\"]*\" alt=\"[^\"]*\">\\s+</div>",
       "icon_pattern_alt": "",
       "gitlab_repo_id_pattern": "",
