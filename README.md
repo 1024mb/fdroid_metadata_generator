@@ -1,6 +1,6 @@
 ## This program extracts information from third party stores and saves it in a YAML file for F-Droid Server.
 
-Python version required is 3.9+.
+Python version required is 3.11+.
 
 Dependencies
 -------------------------
@@ -10,6 +10,7 @@ Dependencies
 - [win32-setctime](https://github.com/Delgan/win32-setctime) : *If on Windows*
 - [pillow](https://github.com/python-pillow/Pillow)
 - [requests](https://github.com/psf/requests)
+- [pydantic](https://github.com/pydantic/pydantic/)
 
 Usage:
 -------------------------
@@ -93,8 +94,9 @@ This program:
 * Depends on a data file, explained below.
 * Needs a language to be provided.
 * Requires AAPT and AAPT2.
+* If using the renamer, depends on a `sdk_names.json` file
 
-By default no data will be overwritten except for empty or dummy values.
+By default, no data will be overwritten except for empty or dummy values.
 
 You can:
 
@@ -164,6 +166,14 @@ They are also printed at the end.
 
 -------------------------
 
+### Supported Stores
+
+- Play Store
+- Amazon Appstore
+- Apkcombo
+
+-------------------------
+
 Remember to run these two commands after all the download is completed:
 
 ```console
@@ -205,6 +215,13 @@ The replacement file can be used to either replace parts of the package ID or al
 rest of the search terms are skipped for the package, so a package can only be affected by one replacement at the same
 time.
 Included is an example file. Path to this file is specified with `--replacement-file`.
+
+-------------------------
+
+### About the sdk_names file
+
+This is a simple JSON file containing the SDK name as a key and a tuple of the version number and name as the value.
+It's only used by the renamer, if the renaming function is not used then you don't need this.
 
 -------------------------
 
