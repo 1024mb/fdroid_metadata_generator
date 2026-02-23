@@ -32,6 +32,17 @@ from common import (get_program_dir,
 
 __version__ = "1.1.0"
 
+not_found_packages: list[str] = []
+authorname_not_found_packages: list[str] = []
+authoremail_not_found_packages: list[str] = []
+name_not_found_packages: list[str] = []
+website_not_found_packages: list[str] = []
+summary_not_found_packages: list[str] = []
+description_not_found_packages: list[str] = []
+category_not_found_packages: list[str] = []
+icon_not_found_packages: list[str] = []
+screenshots_not_found_packages: list[str] = []
+
 
 def main():
     parser = argparse.ArgumentParser(prog="fdroid-metadata-generator",
@@ -672,17 +683,6 @@ def retrieve_info(package_list: dict[str, str],
                   use_eng_name: bool) -> None:
     proc = False
 
-    not_found_packages: list[str] = []
-    authorname_not_found_packages: list[str] = []
-    authoremail_not_found_packages: list[str] = []
-    name_not_found_packages: list[str] = []
-    website_not_found_packages: list[str] = []
-    summary_not_found_packages: list[str] = []
-    description_not_found_packages: list[str] = []
-    category_not_found_packages: list[str] = []
-    icon_not_found_packages: list[str] = []
-    screenshots_not_found_packages: list[str] = []
-
     for pkg in package_list.keys():
         package = pkg
         new_package = package_list[pkg]
@@ -850,13 +850,6 @@ def retrieve_info(package_list: dict[str, str],
                              resp=resp,
                              resp_int=resp_int,
                              package=package,
-                             name_not_found_packages=name_not_found_packages,
-                             authorname_not_found_packages=authorname_not_found_packages,
-                             authoremail_not_found_packages=authoremail_not_found_packages,
-                             website_not_found_packages=website_not_found_packages,
-                             category_not_found_packages=category_not_found_packages,
-                             summary_not_found_packages=summary_not_found_packages,
-                             description_not_found_packages=description_not_found_packages,
                              force_metadata=force_metadata,
                              app_data=app_data,
                              store_name=store_name,
@@ -866,13 +859,6 @@ def retrieve_info(package_list: dict[str, str],
                          resp=resp,
                          resp_int=resp_int,
                          package=package,
-                         name_not_found_packages=name_not_found_packages,
-                         authorname_not_found_packages=authorname_not_found_packages,
-                         authoremail_not_found_packages=authoremail_not_found_packages,
-                         website_not_found_packages=website_not_found_packages,
-                         category_not_found_packages=category_not_found_packages,
-                         summary_not_found_packages=summary_not_found_packages,
-                         description_not_found_packages=description_not_found_packages,
                          force_metadata=force_metadata,
                          app_data=app_data,
                          store_name=store_name,
@@ -917,7 +903,6 @@ def retrieve_info(package_list: dict[str, str],
                          repo_dir=repo_dir,
                          force_icons=force_icons,
                          app_data=app_data,
-                         icon_not_found_packages=icon_not_found_packages,
                          store_name=store_name)
             print(Fore.GREEN + f"\tFinished downloading icons for {package}.", end="\n\n")
         else:
@@ -933,7 +918,6 @@ def retrieve_info(package_list: dict[str, str],
                                 repo_dir=repo_dir,
                                 package=package,
                                 new_package=new_package,
-                                screenshots_not_found_packages=screenshots_not_found_packages,
                                 app_data=app_data,
                                 screenshots_exist=screenshots_exist,
                                 store_name=store_name)
@@ -1015,13 +999,6 @@ def get_metadata(package_content: dict,
                  resp: str,
                  resp_int: str,
                  package: str,
-                 name_not_found_packages: list[str],
-                 authorname_not_found_packages: list[str],
-                 authoremail_not_found_packages: list[str],
-                 website_not_found_packages: list[str],
-                 category_not_found_packages: list[str],
-                 summary_not_found_packages: list[str],
-                 description_not_found_packages: list[str],
                  force_metadata: bool,
                  app_data: AppData,
                  store_name: SupportedStore,
@@ -1034,7 +1011,6 @@ def get_metadata(package_content: dict,
                  resp=resp,
                  resp_int=resp_int,
                  package=package,
-                 name_not_found_packages=name_not_found_packages,
                  force_metadata=force_metadata,
                  use_eng_name=use_eng_name,
                  store_name=store_name)
@@ -1044,7 +1020,6 @@ def get_metadata(package_content: dict,
                         author_name_pattern=store_patterns.author_name_pattern,
                         resp=resp,
                         package=package,
-                        authorname_not_found_packages=authorname_not_found_packages,
                         force_metadata=force_metadata,
                         store_name=store_name)
 
@@ -1053,7 +1028,6 @@ def get_metadata(package_content: dict,
                          author_email_pattern=store_patterns.author_email_pattern,
                          resp=resp,
                          package=package,
-                         authoremail_not_found_packages=authoremail_not_found_packages,
                          force_metadata=force_metadata,
                          store_name=store_name)
 
@@ -1064,7 +1038,6 @@ def get_metadata(package_content: dict,
                               website_pattern=store_patterns.website_pattern,
                               resp=resp,
                               package=package,
-                              website_not_found_packages=website_not_found_packages,
                               force_metadata=force_metadata,
                               store_name=store_name)
 
@@ -1079,7 +1052,6 @@ def get_metadata(package_content: dict,
                        category_pattern=store_patterns.category_pattern,
                        resp_int=resp_int,
                        package=package,
-                       category_not_found_packages=category_not_found_packages,
                        app_data=app_data,
                        force_metadata=force_metadata,
                        store_name=store_name)
@@ -1100,7 +1072,6 @@ def get_metadata(package_content: dict,
                         description_pattern=store_patterns.description_pattern,
                         resp=resp,
                         package=package,
-                        description_not_found_packages=description_not_found_packages,
                         force_metadata=force_metadata,
                         store_name=store_name)
 
@@ -1148,7 +1119,6 @@ def get_author_email(package_content: dict,
                      author_email_pattern: re.Pattern[str],
                      resp: str,
                      package: str,
-                     authoremail_not_found_packages: list[str],
                      force_metadata: bool,
                      store_name: SupportedStore) -> None:
     if package_content.get("AuthorEmail", "") == "" or package_content.get("AuthorEmail") is None or force_metadata:
@@ -1170,7 +1140,6 @@ def get_description(package_content: dict,
                     description_pattern: re.Pattern[str],
                     resp: str,
                     package: str,
-                    description_not_found_packages: list[str],
                     force_metadata: bool,
                     store_name: SupportedStore) -> None:
     if package_content.get("Description", "") == "" or package_content.get("Description") is None or force_metadata:
@@ -1198,7 +1167,6 @@ def get_name(package_content: dict,
              resp: str,
              resp_int: str,
              package: str,
-             name_not_found_packages: list[str],
              force_metadata: bool,
              use_eng_name: bool,
              store_name: SupportedStore) -> None:
@@ -1220,7 +1188,6 @@ def get_categories(package_content: dict,
                    category_pattern: re.Pattern[str],
                    resp_int: str,
                    package: str,
-                   category_not_found_packages: list[str],
                    app_data: AppData,
                    force_metadata: bool,
                    store_name: SupportedStore) -> None:
@@ -1356,7 +1323,6 @@ def get_website(package_content: dict,
                 website_pattern: re.Pattern[str],
                 resp: str,
                 package: str,
-                website_not_found_packages: list[str],
                 force_metadata: bool,
                 store_name: SupportedStore) -> str:
     website = ""
@@ -1382,7 +1348,6 @@ def get_author_name(package_content: dict,
                     author_name_pattern: re.Pattern[str],
                     resp: str,
                     package: str,
-                    authorname_not_found_packages: list[str],
                     force_metadata: bool,
                     store_name: SupportedStore) -> None:
     try:
@@ -1498,7 +1463,6 @@ def get_screenshots(resp: str,
                     repo_dir: str,
                     package: str,
                     new_package: str,
-                    screenshots_not_found_packages: list[str],
                     app_data: AppData,
                     screenshots_exist: bool,
                     store_name: SupportedStore) -> None:
@@ -1620,7 +1584,6 @@ def get_icon(resp_int: str,
              repo_dir: str,
              force_icons: bool,
              app_data: AppData,
-             icon_not_found_packages: list[str],
              store_name: SupportedStore) -> None:
     store_patterns: RegexPatterns = getattr(app_data.Regex_Patterns, store_name)
 
