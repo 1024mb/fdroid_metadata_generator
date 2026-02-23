@@ -9,19 +9,26 @@ import re
 import shutil
 import sys
 import tempfile
-import urllib.request
 from datetime import datetime
 from typing import Literal, Any
-from urllib.error import HTTPError
 
 import pydantic
+import requests
 import ruamel.yaml
 from PIL import Image
 from colorama import Fore, init
+from requests import HTTPError
 
 import recompiler
 import renamer
-from common import get_program_dir, AppData, RegexPatterns, SupportedStore, get_page_content
+from common import (get_program_dir,
+                    AppData,
+                    RegexPatterns,
+                    SupportedStore,
+                    get_page_content,
+                    download_file,
+                    ExtensionUnknown,
+                    is_none_or_empty)
 
 __version__ = "1.1.0"
 
@@ -1308,7 +1315,7 @@ def get_repo_info_and_license(package_content: dict,
                               force_metadata: bool) -> None:
     # noinspection HttpUrlsUsage
     if "https://github.com/" in website or "http://github.com/" in website:
-        repo = re.sub(r"(https?)(://github.com/[^/]+/[^/]+).*", r"https\2", website)
+        repo_url = re.sub(r"(https?)(://github.com/[^/]+/[^/]+).*", r"https\2", website)
         api_repo = re.sub(r"(https?)(://github.com/)([^/]+/[^/]+).*",
                           r"https://api.github.com/repos/\3", website)
 
@@ -1321,45 +1328,51 @@ def get_repo_info_and_license(package_content: dict,
         if app_license is not None:
             package_content["License"] = app_license
 
-        if (package_content.get("IssueTracker", "") == "" or package_content.get("IssueTracker") is None
-                or force_metadata):
-            package_content["IssueTracker"] = repo + "/issues"
+        if force_metadata or is_none_or_empty(data=package_content, key="IssueTracker"):
+            package_content["IssueTracker"] = repo_url + "/issues"
 
-        if package_content.get("SourceCode", "") == "" or package_content.get("SourceCode") is None or force_metadata:
-            package_content["SourceCode"] = repo
+        if force_metadata or is_none_or_empty(data=package_content, key="SourceCode"):
+            package_content["SourceCode"] = repo_url
 
-        if package_content.get("Changelog", "") == "" or package_content.get("Changelog") is None or force_metadata:
-            package_content["Changelog"] = repo + "/releases/latest"
+        if force_metadata or is_none_or_empty(data=package_content, key="Changelog"):
+            package_content["Changelog"] = repo_url + "/releases/latest"
 
-        if package_content.get("Repo", "") == "" or package_content.get("Repo") is None or force_metadata:
-            package_content["Repo"] = repo
+        if force_metadata or is_none_or_empty(data=package_content, key="Repo"):
+            package_content["Repo"] = repo_url
     elif "https://gitlab.com/" in website or "http://gitlab.com/" in website:
-        repo = re.sub(r"(https?)(://gitlab.com/[^/]+/[^/]+).*", r"https\2", website)
-        git_repo = urllib.request.urlopen(repo).read().decode()
+        repo_url = re.sub(r"(https?)(://gitlab.com/[^/]+/[^/]+).*", r"https\2", website)
+        try:
+            response = requests.get(repo_url)
+            response.raise_for_status()
+        except HTTPError as e:
+            print(Fore.RED + f"Couldn't retrieve repository information from Gitlab. HTTP error: "
+                             f"{e.response.status_code}")
+            return
+
+        response_content = response.text
 
         if gitlab_repo_id_pattern != "":
             try:
-                repo_id = gitlab_repo_id_pattern.search(git_repo).groups(1)
+                repo_id = gitlab_repo_id_pattern.search(response_content).groups(1)
                 api_repo = "https://gitlab.com/api/v4/projects/" + repo_id[0].strip() + "?license=yes"
                 app_license = get_license(package_content, force_metadata, api_repo, license_list)
 
                 if app_license is not None:
-                    package_content["License"] = license
+                    package_content["License"] = app_license
             except (IndexError, AttributeError):
                 pass
 
-        if (package_content.get("IssueTracker", "") == "" or package_content.get("IssueTracker") is None
-                or force_metadata):
-            package_content["IssueTracker"] = repo + "/issues"
+        if force_metadata or is_none_or_empty(data=package_content, key="IssueTracker"):
+            package_content["IssueTracker"] = repo_url + "/issues"
 
-        if package_content.get("SourceCode", "") == "" or package_content.get("SourceCode") is None or force_metadata:
-            package_content["SourceCode"] = repo
+        if force_metadata or is_none_or_empty(data=package_content, key="SourceCode"):
+            package_content["SourceCode"] = repo_url
 
-        if package_content.get("Changelog", "") == "" or package_content.get("Changelog") is None or force_metadata:
-            package_content["Changelog"] = repo + "/releases"
+        if force_metadata or is_none_or_empty(data=package_content, key="Changelog"):
+            package_content["Changelog"] = repo_url + "/releases"
 
-        if package_content.get("Repo", "") == "" or package_content.get("Repo") is None or force_metadata:
-            package_content["Repo"] = repo
+        if force_metadata or is_none_or_empty(data=package_content, key="Repo"):
+            package_content["Repo"] = repo_url
     elif (package_content.get("License", "") == "" or package_content.get("License", "") == "Unknown"
           or package_content.get("License") is None or force_metadata):
         package_content["License"] = "Copyright"
@@ -1470,22 +1483,23 @@ def get_license(package_content: dict,
                 force_metadata: bool,
                 api_repo: str,
                 license_list: list[str]) -> str | None:
-    if (package_content.get("License", "") == "" or package_content.get("License", "") == "Unknown"
-            or package_content.get("License") is None or force_metadata):
+
+    if force_metadata or is_none_or_empty(data=package_content, key="License", forbidden_values=["Unknown"]):
         try:
-            api_load = urllib.request.urlopen(api_repo).read().decode()
+            api_response = requests.get(api_repo)
+            api_response.raise_for_status()
         except HTTPError:
             print(Fore.YELLOW + "\tCouldn't download the api response for the license.", end="\n\n")
             return None
 
         try:
-            resp_api: dict[str, Any] = json.loads(api_load)
+            api_data: dict[str, Any] = api_response.json()
         except json.JSONDecodeError:
             print(Fore.YELLOW + "\tCouldn't load the api response for the license.", end="\n\n")
             return None
 
-        if resp_api["license"] is not None:
-            return normalize_license(license_list, resp_api["license"]["key"])
+        if api_data["license"] is not None:
+            return normalize_license(license_list, api_data["license"]["key"])
         else:
             return "No License"
     else:
@@ -1522,6 +1536,7 @@ def get_screenshots(resp: str,
     if os.path.exists(screenshots_path) and ".noscreenshots" in os.listdir(screenshots_path):
         print(Fore.BLUE + "\tSkipping screenshots download for {}.".format(package), end="\n\n")
         return
+
     store_patterns: RegexPatterns = getattr(app_data.Regex_Patterns, store_name)
 
     if store_patterns.screenshot_pattern == "":
@@ -1565,7 +1580,7 @@ def get_screenshots(resp: str,
             return
 
         try:
-            os.makedirs(backup_path)
+            os.makedirs(backup_path, exist_ok=True)
         except PermissionError as e:
             print(Fore.RED + "\tCouldn't create backup directory for screenshots. Permission denied.", end="\n\n")
             print(e, end="\n\n")
@@ -1580,9 +1595,7 @@ def get_screenshots(resp: str,
             return
 
     try:
-        os.makedirs(screenshots_path)
-    except FileExistsError:
-        pass
+        os.makedirs(screenshots_path, exist_ok=True)
     except PermissionError:
         print(Fore.RED + "\tError creating the directory where the screenshots should be saved. Permission denied.",
               end="\n\n")
@@ -1591,29 +1604,32 @@ def get_screenshots(resp: str,
     pad_amount = len(str(len(img_url_list)))
 
     i = 0
-
     for img_url in img_url_list:
         if store_name == "Play_Store" or store_name == "Apkcombo_Store":
             url = img_url + "=w9999"
         else:
             url = img_url
-        ss_path = os.path.join(screenshots_path, str(i).zfill(pad_amount) + ".png")
+
+        ss_path = os.path.join(screenshots_path, str(i).zfill(pad_amount))
+
         try:
-            urllib.request.urlretrieve(url, ss_path)
+            download_file(url=url, filepath_without_extension=ss_path)
             i += 1
-        except HTTPError:
-            pass
+        except HTTPError as e:
+            print(Fore.YELLOW + f"\tCouldn't download screenshot: {img_url}. HTTP error: {e.response.status_code}")
         except PermissionError:
-            print(Fore.RED + "\tError downloading screenshots. Permission denied.", end="\n\n")
+            print(Fore.RED + "\tCouldn't write screenshot file. Permission denied.")
             return
+        except ExtensionUnknown as e:
+            print(Fore.YELLOW + f"\tError downloading screenshot: {img_url}. {e}.")
 
     print(Fore.GREEN + "\tFinished downloading screenshots for {}.".format(package), end="\n\n")
 
 
-def extract_icon_url(resp_int: str,
+def extract_icon_url(response_content: str,
                      icon_pattern: re.Pattern[str]) -> str | None:
     try:
-        icon_base_url = icon_pattern.search(resp_int).group(1)
+        icon_base_url = icon_pattern.search(response_content).group(1)
     except (IndexError, AttributeError):
         return None
 
@@ -1621,19 +1637,6 @@ def extract_icon_url(resp_int: str,
         return None
     else:
         return icon_base_url
-
-
-def extract_icon_url_alt(resp_int: str,
-                         icon_pattern_alt: re.Pattern[str]) -> str | None:
-    try:
-        icon_base_url_alt = icon_pattern_alt.search(resp_int).group(1)
-    except (IndexError, AttributeError):
-        return None
-
-    if icon_base_url_alt == "":
-        return None
-    else:
-        return icon_base_url_alt
 
 
 def get_icon(resp_int: str,
@@ -1659,7 +1662,7 @@ def get_icon(resp_int: str,
 
     icon_base_url_alt = None
 
-    icon_base_url = extract_icon_url(resp_int, store_patterns.icon_pattern)
+    icon_base_url = extract_icon_url(response_content=resp_int, icon_pattern=store_patterns.icon_pattern)
 
     if icon_base_url is None:
         if store_patterns.icon_pattern_alt == "":
@@ -1667,13 +1670,14 @@ def get_icon(resp_int: str,
             icon_not_found_packages.append(package)
             return
         else:
-            icon_base_url_alt = extract_icon_url_alt(resp_int, store_patterns.icon_pattern_alt)
+            icon_base_url_alt = extract_icon_url(response_content=resp_int,
+                                                 icon_pattern=store_patterns.icon_pattern_alt)
             if icon_base_url_alt is None:
                 print(Fore.YELLOW + "\tCouldn't extract icon URL for {}.".format(new_package), end="\n\n")
                 icon_not_found_packages.append(package)
                 return
 
-    filename = package + "." + str(version_code) + ".png"
+    filename = package + "." + str(version_code)
 
     for dirname in app_data.Icon_Relations.keys():
         try:
@@ -1695,40 +1699,40 @@ def get_icon(resp_int: str,
                 url = icon_base_url + app_data.Icon_Relations[dirname]
 
                 try:
-                    urllib.request.urlretrieve(url, icon_path)
-                except urllib.error.HTTPError:
-                    print(Fore.YELLOW + "\tCouldn't download icon for {}.".format(dirname))
+                    download_file(url=url, filepath_without_extension=icon_path)
+                except HTTPError as e:
+                    print(Fore.YELLOW + f"\tCouldn't download icon for {dirname}. "
+                                        f"HTTP error: {e.response.status_code}.")
                 except PermissionError:
-                    print(Fore.YELLOW + "\tCouldn't write icon file for {}. Permission denied.".format(dirname))
+                    print(Fore.RED + f"\tCouldn't write icon file for {dirname}. Permission denied.")
                     return
+                except ExtensionUnknown as e:
+                    print(Fore.YELLOW + f"\tError downloading icon for {dirname}. {e}.")
         elif store_name == "Amazon_Store":
-            main_icon_path = ""
+            try:
+                main_icon_path = download_file(url=icon_base_url,
+                                               filepath_without_extension=os.path.join(tempfile.mkdtemp(), filename))
+            except HTTPError as e:
+                print(Fore.RED + f"\tCouldn't download icon. "
+                                 f"HTTP error: {e.response.status_code}.")
+                return
+            except PermissionError:
+                print(Fore.RED + f"\tCouldn't write icon file for. Permission denied.")
+                return
+            except ExtensionUnknown as e:
+                print(Fore.RED + f"\tError downloading icon for. {e}.")
+                return
 
-            for dirname in app_data.Icon_Relations.keys():
+            with Image.open(main_icon_path) as orig_img:
+                for dirname in app_data.Icon_Relations.keys():
+                    icon_path = os.path.join(repo_dir, dirname, filename)
 
-                icon_path = os.path.join(repo_dir, dirname, filename)
+                    if os.path.exists(icon_path) and not force_icons:
+                        continue
 
-                if os.path.exists(icon_path) and not force_icons:
-                    continue
-
-                if main_icon_path == "":
-                    tmp_dir = tempfile.mkdtemp()
-                    try:
-                        urllib.request.urlretrieve(icon_base_url, os.path.join(tmp_dir, filename))
-                        main_icon_path = os.path.join(tmp_dir, filename)
-                    except urllib.error.HTTPError:
-                        print(Fore.YELLOW + "\tCouldn't download icon for {}.".format(dirname))
-                        return
-                    except PermissionError:
-                        print(Fore.YELLOW + "\tCouldn't write icon file for {}. Permission denied.".format(dirname))
-                        return
-
-                orig_img = Image.open(main_icon_path)
-                resized_img = orig_img.resize((int(app_data.Icon_Relations[dirname]),
-                                               int(app_data.Icon_Relations[dirname])))
-                resized_img.save(icon_path)
-                orig_img.close()
-
+                    resized_img = orig_img.resize((int(app_data.Icon_Relations[dirname]),
+                                                   int(app_data.Icon_Relations[dirname])))
+                    resized_img.save(icon_path)
     elif icon_base_url_alt is not None:
         if store_name == "Play_Store":
             for dirname in app_data.Icon_Relations.keys():
@@ -1737,15 +1741,18 @@ def get_icon(resp_int: str,
                 if os.path.exists(icon_path) and not force_icons:
                     continue
 
-                url = (icon_base_url_alt + app_data.Icon_Relations[dirname] + "-h" +
-                       app_data.Icon_Relations[dirname])  # type: str
+                url = (icon_base_url_alt + app_data.Icon_Relations[dirname] + "-h" + app_data.Icon_Relations[dirname])
 
                 try:
-                    urllib.request.urlretrieve(url, icon_path)
-                except urllib.error.HTTPError:
-                    print(Fore.YELLOW + f"\tCouldn't download icon for {dirname}.")
+                    download_file(url=url, filepath_without_extension=icon_path)
+                except HTTPError as e:
+                    print(Fore.YELLOW + f"\tCouldn't download icon for {dirname}. "
+                                        f"HTTP error: {e.response.status_code}.")
                 except PermissionError:
-                    print(Fore.YELLOW + f"\tCouldn't write icon file for {dirname}. Permission denied.")
+                    print(Fore.RED + f"\tCouldn't write icon file for {dirname}. Permission denied.")
+                    return
+                except ExtensionUnknown as e:
+                    print(Fore.YELLOW + f"\tError downloading icon for {dirname}. {e}.")
 
 
 def sanitize_lang(lang: str) -> str:

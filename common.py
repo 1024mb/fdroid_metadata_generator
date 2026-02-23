@@ -1,9 +1,10 @@
+import mimetypes
 import os
 import re
 import sys
 from http.cookiejar import MozillaCookieJar
 from time import sleep
-from typing import Literal
+from typing import Literal, Any
 
 import requests
 from colorama import Fore
@@ -76,6 +77,10 @@ class AppData(BaseModel):
     Sport_Category_Pattern: SportCategoryPattern
     User_Agent: str = Field(default="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0")
     Page_Error_Pattern: PageErrorPattern
+
+
+class ExtensionUnknown(Exception):
+    pass
 
 
 SupportedStore = Literal["Play_Store", "Amazon_Store", "Apkcombo_Store"]
@@ -167,3 +172,37 @@ def get_page_content(url: str,
                 print(Fore.RED + f"\tERROR: {store_name} requires a cookie file.", end="\n\n")
 
     return resp_content
+
+
+def download_file(url: str,
+                  filepath_without_extension: str) -> str:
+    with requests.get(url, stream=True) as resp_stream:
+        resp_stream.raise_for_status()
+
+        extension = mimetypes.guess_extension(resp_stream.headers.get("Content-Type"))
+
+        if extension is None:
+            raise ExtensionUnknown(f"Couldn't retrieve the correct extension for '{filepath_without_extension}'.")
+
+        with open(filepath_without_extension + extension, "wb") as file_stream:
+            for chunk in resp_stream.iter_content(chunk_size=8192):
+                file_stream.write(chunk)
+
+        return filepath_without_extension + extension
+
+
+def is_none_or_empty(data: dict,
+                     key: Any,
+                     forbidden_values: list[str] = None) -> bool:
+    value = data.get(key)
+
+    if value is None:
+        return True
+    elif isinstance(value, str):
+        if value.strip() == "":
+            return True
+
+    if forbidden_values is not None and value in forbidden_values:
+        return True
+
+    return False
