@@ -1011,7 +1011,8 @@ def get_metadata(package_content: dict,
                  package=package,
                  name_not_found_packages=name_not_found_packages,
                  force_metadata=force_metadata,
-                 use_eng_name=use_eng_name)
+                 use_eng_name=use_eng_name,
+                 store_name=store_name)
 
     if store_patterns.author_name_pattern != "":
         get_author_name(package_content=package_content,
@@ -1075,7 +1076,8 @@ def get_metadata(package_content: dict,
                         resp=resp,
                         package=package,
                         description_not_found_packages=description_not_found_packages,
-                        force_metadata=force_metadata)
+                        force_metadata=force_metadata,
+                        store_name=store_name)
 
     get_anti_features(package_content=package_content,
                       website=website,
@@ -1144,7 +1146,8 @@ def get_description(package_content: dict,
                     resp: str,
                     package: str,
                     description_not_found_packages: list[str],
-                    force_metadata: bool) -> None:
+                    force_metadata: bool,
+                    store_name: SupportedStore) -> None:
     if package_content.get("Description", "") == "" or package_content.get("Description") is None or force_metadata:
         try:
             description_extracted = html.unescape(description_pattern.search(resp).group(1))
@@ -1172,7 +1175,8 @@ def get_name(package_content: dict,
              package: str,
              name_not_found_packages: list[str],
              force_metadata: bool,
-             use_eng_name: bool) -> None:
+             use_eng_name: bool,
+             store_name: SupportedStore) -> None:
     if package_content.get("Name", "") == "" or package_content.get("Name") is None or force_metadata:
 
         if use_eng_name:
@@ -1258,6 +1262,7 @@ def get_repo_info_and_license(package_content: dict,
                               website: str,
                               license_list: list[str],
                               force_metadata: bool) -> None:
+    # noinspection HttpUrlsUsage
     if "https://github.com/" in website or "http://github.com/" in website:
         repo = re.sub(r"(https?)(://github.com/[^/]+/[^/]+).*", r"https\2", website)
         api_repo = re.sub(r"(https?)(://github.com/)([^/]+/[^/]+).*",
