@@ -1011,7 +1011,8 @@ def get_metadata(package_content: dict,
                  package=package,
                  name_not_found_packages=name_not_found_packages,
                  force_metadata=force_metadata,
-                 use_eng_name=use_eng_name)
+                 use_eng_name=use_eng_name,
+                 store_name=store_name)
 
     if store_patterns.author_name_pattern != "":
         get_author_name(package_content=package_content,
@@ -1019,7 +1020,8 @@ def get_metadata(package_content: dict,
                         resp=resp,
                         package=package,
                         authorname_not_found_packages=authorname_not_found_packages,
-                        force_metadata=force_metadata)
+                        force_metadata=force_metadata,
+                        store_name=store_name)
 
     if store_patterns.author_email_pattern != "":
         get_author_email(package_content=package_content,
@@ -1027,7 +1029,8 @@ def get_metadata(package_content: dict,
                          resp=resp,
                          package=package,
                          authoremail_not_found_packages=authoremail_not_found_packages,
-                         force_metadata=force_metadata)
+                         force_metadata=force_metadata,
+                         store_name=store_name)
 
     website = ""
 
@@ -1037,7 +1040,8 @@ def get_metadata(package_content: dict,
                               resp=resp,
                               package=package,
                               website_not_found_packages=website_not_found_packages,
-                              force_metadata=force_metadata)
+                              force_metadata=force_metadata,
+                              store_name=store_name)
 
     get_repo_info_and_license(package_content=package_content,
                               gitlab_repo_id_pattern=store_patterns.gitlab_repo_id_pattern,
@@ -1064,7 +1068,7 @@ def get_metadata(package_content: dict,
                                                                                package_content=package_content,
                                                                                pattern=store_patterns.summary_pattern_alt):
                     print(Fore.YELLOW + "\tWARNING: Couldn't get the summary.", end="\n\n")
-                    summary_not_found_packages.append(package)
+                    summary_not_found_packages.append(package + " [" + store_name + "]")
 
     if store_patterns.description_pattern != "":
         get_description(package_content=package_content,
@@ -1072,7 +1076,8 @@ def get_metadata(package_content: dict,
                         resp=resp,
                         package=package,
                         description_not_found_packages=description_not_found_packages,
-                        force_metadata=force_metadata)
+                        force_metadata=force_metadata,
+                        store_name=store_name)
 
     get_anti_features(package_content=package_content,
                       website=website,
@@ -1119,7 +1124,8 @@ def get_author_email(package_content: dict,
                      resp: str,
                      package: str,
                      authoremail_not_found_packages: list[str],
-                     force_metadata: bool) -> None:
+                     force_metadata: bool,
+                     store_name: SupportedStore) -> None:
     if package_content.get("AuthorEmail", "") == "" or package_content.get("AuthorEmail") is None or force_metadata:
         try:
             email_grps = author_email_pattern.findall(resp)
@@ -1132,7 +1138,7 @@ def get_author_email(package_content: dict,
                     break
         except (IndexError, AttributeError):
             print(Fore.YELLOW + "\tWARNING: Couldn't get the Author email.", end="\n\n")
-            authoremail_not_found_packages.append(package)
+            authoremail_not_found_packages.append(package + " [" + store_name + "]")
 
 
 def get_description(package_content: dict,
@@ -1140,7 +1146,8 @@ def get_description(package_content: dict,
                     resp: str,
                     package: str,
                     description_not_found_packages: list[str],
-                    force_metadata: bool) -> None:
+                    force_metadata: bool,
+                    store_name: SupportedStore) -> None:
     if package_content.get("Description", "") == "" or package_content.get("Description") is None or force_metadata:
         try:
             description_extracted = html.unescape(description_pattern.search(resp).group(1))
@@ -1155,7 +1162,7 @@ def get_description(package_content: dict,
 
         except (IndexError, AttributeError):
             print(Fore.YELLOW + "\tWARNING: Couldn't get the description.", end="\n\n")
-            description_not_found_packages.append(package)
+            description_not_found_packages.append(package + " [" + store_name + "]")
             return
 
         package_content["Description"] = description
@@ -1168,7 +1175,8 @@ def get_name(package_content: dict,
              package: str,
              name_not_found_packages: list[str],
              force_metadata: bool,
-             use_eng_name: bool) -> None:
+             use_eng_name: bool,
+             store_name: SupportedStore) -> None:
     if package_content.get("Name", "") == "" or package_content.get("Name") is None or force_metadata:
 
         if use_eng_name:
@@ -1180,7 +1188,7 @@ def get_name(package_content: dict,
             package_content["Name"] = html.unescape(name_pattern.search(resp_final).group(1)).strip()
         except (IndexError, AttributeError):
             print(Fore.YELLOW + "\tWARNING: Couldn't get the application name.", end="\n\n")
-            name_not_found_packages.append(package)
+            name_not_found_packages.append(package + " [" + store_name + "]")
 
 
 def get_categories(package_content: dict,
@@ -1208,12 +1216,12 @@ def get_categories(package_content: dict,
                                           store_name=store_name)
             if len(cat_list) == 0:
                 print(Fore.YELLOW + "\tWARNING: Couldn't get the categories.", end="\n\n")
-                category_not_found_packages.append(package)
+                category_not_found_packages.append(package + " [" + store_name + "]")
             else:
                 package_content["Categories"] = cat_list
         else:
             print(Fore.YELLOW + "\tWARNING: Couldn't get the categories.", end="\n\n")
-            category_not_found_packages.append(package)
+            category_not_found_packages.append(package + " [" + store_name + "]")
 
 
 def extract_categories(ret_grp: re.Match[str],
@@ -1254,6 +1262,7 @@ def get_repo_info_and_license(package_content: dict,
                               website: str,
                               license_list: list[str],
                               force_metadata: bool) -> None:
+    # noinspection HttpUrlsUsage
     if "https://github.com/" in website or "http://github.com/" in website:
         repo = re.sub(r"(https?)(://github.com/[^/]+/[^/]+).*", r"https\2", website)
         api_repo = re.sub(r"(https?)(://github.com/)([^/]+/[^/]+).*",
@@ -1317,14 +1326,15 @@ def get_website(package_content: dict,
                 resp: str,
                 package: str,
                 website_not_found_packages: list[str],
-                force_metadata: bool) -> str:
+                force_metadata: bool,
+                store_name: SupportedStore) -> str:
     website = ""
 
     try:
         website = (website_pattern.search(resp).group(1).strip())
     except (IndexError, AttributeError):
         print(Fore.YELLOW + "\tWARNING: Couldn't get the app website.", end="\n\n")
-        website_not_found_packages.append(package)
+        website_not_found_packages.append(package + " [" + store_name + "]")
 
     if website == "about:invalid#navigation":
         website = ""
@@ -1342,13 +1352,14 @@ def get_author_name(package_content: dict,
                     resp: str,
                     package: str,
                     authorname_not_found_packages: list[str],
-                    force_metadata: bool) -> None:
+                    force_metadata: bool,
+                    store_name: SupportedStore) -> None:
     try:
         if package_content.get("AuthorName", "") == "" or package_content.get("AuthorName") is None or force_metadata:
             package_content["AuthorName"] = html.unescape(author_name_pattern.search(resp).group(1)).strip()
     except (IndexError, AttributeError):
         print(Fore.YELLOW + "\tWARNING: Couldn't get the Author name.", end="\n\n")
-        authorname_not_found_packages.append(package)
+        authorname_not_found_packages.append(package + " [" + store_name + "]")
 
 
 def get_play_store_page(new_package: str,
