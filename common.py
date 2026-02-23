@@ -78,16 +78,16 @@ class AppData(BaseModel):
     Page_Error_Pattern: PageErrorPattern
 
 
+SupportedStore = Literal["Play_Store", "Amazon_Store", "Apkcombo_Store"]
+FailType = Literal["Not_Found", "Robot", "Redirection", ""]
+
+
 def get_program_dir() -> str:
     try:
         # noinspection PyUnresolvedReferences
         return os.path.abspath(__compiled__.containing_dir)
     except NameError:
         return os.path.abspath(os.path.dirname(sys.argv[0]))
-
-
-SupportedStore = Literal["Play_Store", "Amazon_Store", "Apkcombo_Store"]
-FailType = Literal["Not_Found", "Robot", "Redirection", ""]
 
 
 def get_page_content(url: str,
