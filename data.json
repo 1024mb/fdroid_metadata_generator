@@ -402,5 +402,31 @@
     "Amazon_Store": "",
     "Apkcombo_Store": "href=\"/category/game-sports/\""
   },
-  "User_Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0"
+  "User_Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0",
+  "Page_Error_Pattern": {
+    "Not_Found": {
+      "Play_Store": [
+        ">We're sorry, the requested URL was not found on this server\\.<\\/div>"
+      ],
+      "Amazon_Store": [],
+      "Apkcombo_Store": [
+        "We're sorry, the app was not found on APKCombo."
+      ]
+    },
+    "Robot": {
+      "Play_Store": [],
+      "Amazon_Store": [
+        "Sorry, we just need to make sure you're not a robot"
+      ],
+      "Apkcombo_Store": []
+    },
+    "Redirection": {
+      "Play_Store": [],
+      "Amazon_Store": [
+        "https://www.amazon.com/gp/browse.html",
+        "https://www.amazon.com/hz/mas/pagenotfound"
+      ],
+      "Apkcombo_Store": []
+    }
+  }
 }

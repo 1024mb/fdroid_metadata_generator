@@ -11,19 +11,17 @@ import sys
 import tempfile
 import urllib.request
 from datetime import datetime
-from http.cookiejar import MozillaCookieJar
 from typing import Literal, Any
 from urllib.error import HTTPError
 
 import pydantic
-import requests
 import ruamel.yaml
 from PIL import Image
 from colorama import Fore, init
 
 import recompiler
 import renamer
-from common import get_program_dir, AppData, RegexPatterns, SupportedStore
+from common import get_program_dir, AppData, RegexPatterns, SupportedStore, get_page_content
 
 __version__ = "1.1.0"
 
@@ -774,9 +772,10 @@ def retrieve_info(package_list: dict[str, str],
 
         for _ in [1]:
             print(Fore.GREEN + "\tDownloading Play Store page...", end="\n\n")
-            if get_play_store_page(new_package=new_package,
+            if get_play_store_page(package_name=new_package,
                                    resp_list=resp_list,
-                                   language=lang):
+                                   language=lang,
+                                   app_data=app_data):
                 store_name = "Play_Store"
                 break
             resp_list = []
@@ -784,9 +783,9 @@ def retrieve_info(package_list: dict[str, str],
             print(Fore.GREEN + "\tDownloading Amazon Appstore page...", end="\n\n")
             if get_amazon_page(resp_list=resp_list,
                                language=lang,
-                               new_package=new_package,
+                               package_name=new_package,
                                cookie_path=cookie_path,
-                               user_agent=app_data.User_Agent):
+                               app_data=app_data):
                 store_name = "Amazon_Store"
                 break
             resp_list = []
@@ -794,9 +793,8 @@ def retrieve_info(package_list: dict[str, str],
             print(Fore.GREEN + "\tDownloading Apkcombo page...", end="\n\n")
             if get_apkcombo_page(resp_list=resp_list,
                                  language=lang,
-                                 new_package=new_package,
-                                 app_data=app_data,
-                                 user_agent=app_data.User_Agent):
+                                 package_name=new_package,
+                                 app_data=app_data):
                 store_name = "Apkcombo_Store"
                 break
             resp_list = []
@@ -1362,35 +1360,42 @@ def get_author_name(package_content: dict,
         authorname_not_found_packages.append(package + " [" + store_name + "]")
 
 
-def get_play_store_page(new_package: str,
+def get_play_store_page(package_name: str,
                         resp_list: list[str],
-                        language: str) -> bool:
+                        language: str,
+                        app_data: AppData) -> bool:
+    alt_language = re.sub(r"-.+", "", language)
 
-    playstore_url = "https://play.google.com/store/apps/details?id="
+    base_url = "https://play.google.com/store/apps/details?id="
 
-    playstore_url_comp_int = playstore_url + new_package + "&hl=en-US"
-    playstore_url_comp = playstore_url + new_package + "&hl=" + language
+    url = base_url + package_name + "&hl=" + language
+    url_international = base_url + package_name + "&hl=en-US"
 
-    try:
-        resp_list.append(urllib.request.urlopen(playstore_url_comp).read().decode())
-    except HTTPError as e:
-        if e.code == 404:
-            print(Fore.YELLOW + "\t{} was not found on the Play Store.".format(new_package), end="\n\n")
+    resp_content = get_page_content(url=url,
+                                    app_data=app_data,
+                                    package_name=package_name,
+                                    store_name="Play_Store",
+                                    language=language,
+                                    alt_language=alt_language)
+
+    if resp_content is None:
         return False
 
-    if playstore_url_comp == playstore_url_comp_int:
-        resp_list.append(resp_list[0])
+    if language == "en-US":
+        resp_content_international = resp_content
     else:
-        try:
-            resp_list.append(urllib.request.urlopen(playstore_url_comp_int).read().decode())
-        except HTTPError as e:
-            if e.code == 404:
-                print(Fore.YELLOW + "\t{} was not found on the Play Store (en-US).".format(new_package), end="\n\n")
-            return False
+        resp_content_international = get_page_content(url=url_international,
+                                                      app_data=app_data,
+                                                      package_name=package_name,
+                                                      store_name="Play_Store",
+                                                      language="en-US",
+                                                      alt_language="en")
 
-    if ">We're sorry, the requested URL was not found on this server.</div>" in resp_list[1]:
-        print(Fore.YELLOW + "\t{} was not found on the Play Store.".format(new_package), end="\n\n")
+    if resp_content_international is None:
         return False
+
+    resp_list.append(resp_content)
+    resp_list.append(resp_content_international)
 
     return True
 
@@ -1868,108 +1873,85 @@ def write_not_found_log(items: list[str],
 
 def get_amazon_page(resp_list: list[str],
                     language: str,
-                    new_package: str,
+                    package_name: str,
                     cookie_path: str | None,
-                    user_agent: str) -> bool:
+                    app_data: AppData) -> bool:
 
     if cookie_path is None:
         print(Fore.YELLOW + "\tCookie file was not specified. Amazon Appstore page download will not be performed.",
               end="\n\n")
         return False
 
-    cookie_jar = MozillaCookieJar(cookie_path)
-    url = "https://www.amazon.com/gp/mas/dl/android?p=" + new_package
-
+    url = "https://www.amazon.com/gp/mas/dl/android?p=" + package_name
     alt_language = re.sub(r"-.+", "", language)
 
-    sess = requests.Session()
-    sess.cookies = cookie_jar
-    sess.cookies.load()
+    resp_content = get_page_content(url=url,
+                                    store_name="Amazon_Store",
+                                    app_data=app_data,
+                                    language=language,
+                                    alt_language=alt_language,
+                                    package_name=package_name,
+                                    cookie_file=cookie_path)
 
-    sess.headers = {
-        "User-Agent": user_agent,
-        "Accept-Language": language + "," + alt_language
-    }
-
-    resp = sess.get(url, allow_redirects=True)
-
-    if resp.url.find("https://www.amazon.com/gp/browse.html") != -1:
-        print(Fore.YELLOW + "\t{} was not found on the Amazon Appstore.".format(new_package), end="\n\n")
+    if resp_content is None:
         return False
 
-    resp = resp.content.decode(encoding="utf_8", errors="replace")
-
-    if "<p class=\"a-last\">Sorry, we just need to make sure you're not a robot." in resp:
-        print(Fore.RED + "\tERROR: Cookie file doesn't contain Amazon cookies.", end="\n\n")
-        return False
-
-    if language == "en-US":
-        resp_int = resp
+    if language == "en":
+        resp_content_international = resp_content
     else:
-        sess.headers = {
-            "User-Agent": user_agent,
-            "Accept-Language": "en-US,en"
-        }
+        resp_content_international = get_page_content(url=url,
+                                                      store_name="Amazon_Store",
+                                                      app_data=app_data,
+                                                      language="en-US",
+                                                      alt_language="en",
+                                                      package_name=package_name,
+                                                      cookie_file=cookie_path)
 
-        resp_int = sess.get(url, allow_redirects=True)
+    if resp_content_international is None:
+        return False
 
-        if resp_int.url.find("https://www.amazon.com/gp/browse.html") != -1:
-            print(Fore.YELLOW + "\t{} was not found on the Amazon Appstore (INT).".format(new_package), end="\n\n")
-            return False
-
-        resp_int = resp_int.content.decode(encoding="utf_8", errors="replace")
-
-    resp_list.append(resp)
-    resp_list.append(resp_int)
+    resp_list.append(resp_content)
+    resp_list.append(resp_content_international)
 
     return True
 
 
 def get_apkcombo_page(resp_list: list[str],
                       language: str,
-                      new_package: str,
-                      app_data: AppData,
-                      user_agent: str) -> bool:
-
-    url_int = "https://apkcombo.com/xxxx/" + new_package
-
+                      package_name: str,
+                      app_data: AppData) -> bool:
     alt_language = re.sub(r"-.+", "", language)
     new_language = sanitize_lang_apkcombo(language=alt_language,
                                           app_data=app_data)
 
-    url = "https://apkcombo.com/" + new_language + "/xxxx/" + new_package
+    url = "https://apkcombo.com/" + new_language + "/xxxx/" + package_name
+    url_international = "https://apkcombo.com/xxxx/" + package_name
 
-    sess = requests.Session()
+    resp_content = get_page_content(url=url,
+                                    app_data=app_data,
+                                    package_name=package_name,
+                                    store_name="Apkcombo_Store",
+                                    language=new_language,
+                                    alt_language=alt_language)
 
-    sess.headers = {
-        "User-Agent": user_agent,
-        "Accept-Language": language + "," + alt_language
-    }
-
-    resp = sess.get(url, allow_redirects=True)
-    resp = resp.content.decode(encoding="utf_8", errors="replace")
-
-    if resp.find("We're sorry, the app was not found on APKCombo.") != -1:
-        print(Fore.YELLOW + "\t{} was not found on Apkcombo.".format(new_package), end="\n\n")
+    if resp_content is None:
         return False
 
     if new_language == "en":
-        resp_int = resp
+        resp_content_international = resp_content
     else:
-        sess.headers = {
-            "User-Agent": user_agent,
-            "Accept-Language": "en-US,en"
-        }
+        resp_content_international = get_page_content(url=url_international,
+                                                      app_data=app_data,
+                                                      package_name=package_name,
+                                                      store_name="Apkcombo_Store",
+                                                      language="en-US",
+                                                      alt_language="en")
 
-        resp_int = sess.get(url_int, allow_redirects=True)
-        resp_int = resp_int.content.decode(encoding="utf_8", errors="replace")
+    if resp_content_international is None:
+        return False
 
-        if resp_int.find("We're sorry, the app was not found on APKCombo.") != -1:
-            print(Fore.YELLOW + "\t{} was not found on Apkcombo.".format(new_package), end="\n\n")
-            return False
-
-    resp_list.append(resp)
-    resp_list.append(resp_int)
+    resp_list.append(resp_content)
+    resp_list.append(resp_content_international)
 
     return True
 
