@@ -578,32 +578,6 @@ def get_new_packagename(replacement_file: str | None,
         return None
 
 
-def check_data_file(data_file_content) -> bool:
-
-    for key_name in ("Locales",
-                     "Licenses",
-                     "App_Categories",
-                     "Game_Categories",
-                     "Icon_Relations",
-                     "Regex_Patterns",
-                     "Sport_Category_Pattern"):
-        if data_file_content.get(key_name) is None or len(data_file_content[key_name]) == 0:
-            print(Fore.RED + "ERROR: \"{}\" key is missing or empty in the data file.".format(key_name), end="\n\n")
-            return False
-
-        if key_name == "Licenses":
-            if type(data_file_content.get(key_name)) is not list:
-                print(Fore.RED + "ERROR: \"{}\" key is wrong type, should be a list and currently it's a {}".format(
-                        key_name, type(data_file_content.get(key_name))))
-                return False
-        elif type(data_file_content.get(key_name)) is not dict:
-            print(Fore.RED + "ERROR: \"{}\" key is wrong type, should be a dict and currently it's a {}".format(
-                    key_name, type(data_file_content.get(key_name))))
-            return False
-
-    return True
-
-
 def convert_apks_to_apk(apks_dir: str,
                         apk_editor_path: str,
                         sign_apk: bool,
