@@ -389,7 +389,7 @@ def main():
         os.makedirs(log_path)
 
     package_list: dict[str, str] = {}
-    package_and_version: dict[str, tuple[int, str]] = {}
+    package_and_version: dict[str, list[tuple[int, str]]] = {}
 
     if force_all:
         force_metadata = True
@@ -500,13 +500,18 @@ def main():
                                                     base_name=base_name)
 
                 if new_base_name is not None:
-                    package_list[base_name] = new_base_name
-                    package_and_version[new_base_name] = (int(apk_info["Version Code"]),
-                                                          str(apk_info["Version Name"]))
+                    resulting_base_name = new_base_name
                 else:
-                    package_list[base_name] = base_name
-                    package_and_version[base_name] = (int(apk_info["Version Code"]),
-                                                      str(apk_info["Version Name"]))
+                    resulting_base_name = base_name
+
+                package_list[base_name] = resulting_base_name
+
+                if package_and_version.get(resulting_base_name) is None:
+                    package_and_version[resulting_base_name] = [(int(apk_info["Version Code"]),
+                                                                 str(apk_info["Version Name"]))]
+                else:
+                    package_and_version[resulting_base_name].append((int(apk_info["Version Code"]),
+                                                                     str(apk_info["Version Name"])))
 
         print(Fore.GREEN + "Finished getting package names, version names and version codes.", end="\n\n")
 
@@ -634,28 +639,44 @@ def map_apk_to_packagename(repo_dir: str) -> dict[str, str]:
 
 
 def get_version(package_content: dict,
-                package_and_version: dict[str, tuple[int, str]],
+                package_and_version: dict[str, list[tuple[int, str]]],
                 new_package: str,
                 force_metadata: bool,
                 force_version: bool) -> None:
-    if (package_content.get("CurrentVersionCode", "") == "" or package_content.get("CurrentVersionCode", "") == 0
-            or package_content.get("CurrentVersionCode", "") == 2147483647
-            or package_content.get("CurrentVersionCode") is None or force_metadata or force_version):
-        if package_and_version[new_package][0] is not None:
-            package_content["CurrentVersionCode"] = int(package_and_version[new_package][0])
-        else:
-            package_content["CurrentVersionCode"] = 0
+    cvc_is_null = package_content.get("CurrentVersionCode") is None
+    cvc_is_empty = package_content.get("CurrentVersionCode", "") == ""
+    cvc_is_zero = package_content.get("CurrentVersionCode", 0) == 0
+    cvc_is_dummy = package_content.get("CurrentVersionCode", 2147483647) == 2147483647
 
-    if (package_content.get("CurrentVersion", "") == "" or package_content.get("CurrentVersion", "") == "0"
-            or package_content.get("CurrentVersion") is None or force_metadata or force_version):
-        if package_and_version[new_package][1] is not None:
-            package_content["CurrentVersion"] = str(package_and_version[new_package][1])
-        else:
+    cv_is_null = package_content.get("CurrentVersion") is None
+    cv_is_empty = package_content.get("CurrentVersion", "") == ""
+    cv_is_zero = package_content.get("CurrentVersion", "0") == "0"
+
+    if any((cvc_is_null, cvc_is_empty, cvc_is_zero, cvc_is_dummy, force_metadata, force_version, cv_is_null,
+            cv_is_empty, cv_is_zero)):
+        max_cvc = 0
+        max_cvc_index: int | None = None
+        for idx, version_tuple in enumerate(package_and_version[new_package]):
+            if version_tuple[0] is None:
+                continue
+
+            max_value = max(version_tuple[0], max_cvc)
+            if max_value != max_cvc:
+                max_cvc = max_value
+                max_cvc_index = idx
+
+        if max_cvc_index is None:
+            print(Fore.YELLOW + "\t\tWARNING: Couldn't retrieve version. Using zero.")
+
+            package_content["CurrentVersionCode"] = 0
             package_content["CurrentVersion"] = "0"
+        else:
+            package_content["CurrentVersionCode"] = package_and_version[new_package][max_cvc_index][0]
+            package_content["CurrentVersion"] = package_and_version[new_package][max_cvc_index][1]
 
 
 def retrieve_info(package_list: dict[str, str],
-                  package_and_version: dict[str, tuple[int, str]],
+                  package_and_version: dict[str, list[tuple[int, str]]],
                   lang: str,
                   metadata_dir: str,
                   repo_dir: str,
@@ -704,10 +725,20 @@ def retrieve_info(package_list: dict[str, str],
         if dl_screenshots:
             if not force_metadata and not force_screenshots and not force_icons:
                 metadata_exist = is_metadata_complete(package_content=package_content)
-                icons_exist = is_icon_complete(package=package,
-                                               version_code=package_and_version[new_package][0],
-                                               repo_dir=repo_dir,
-                                               app_data=app_data)
+
+                icon_states: list[bool] = []
+
+                for version_tuple in package_and_version[new_package]:
+                    icon_states.append(is_icon_complete(package=package,
+                                                        version_code=version_tuple[0],
+                                                        repo_dir=repo_dir,
+                                                        app_data=app_data))
+
+                if all(icon_states):
+                    icons_exist = True
+                else:
+                    icons_exist = False
+
                 screenshots_exist = screenshot_exist(package=package,
                                                      repo_dir=repo_dir)
 
@@ -715,28 +746,35 @@ def retrieve_info(package_list: dict[str, str],
                     if package_and_version[new_package][0] is None:
                         print(Fore.BLUE + "\tSkipping processing for the package as all the metadata"
                                           " is complete in the YML file, and screenshots exist.", end="\n\n")
-                        continue
                     else:
                         print(Fore.BLUE + "\tSkipping processing for the package as all the metadata is complete in "
                                           "the YML file, all the icons are available and screenshots exist.",
                               end="\n\n")
-                        continue
+                    continue
         elif not force_metadata and not force_icons:
             metadata_exist = is_metadata_complete(package_content=package_content)
-            icons_exist = is_icon_complete(package=package,
-                                           version_code=package_and_version[new_package][0],
-                                           repo_dir=repo_dir,
-                                           app_data=app_data)
+
+            icon_states: list[bool] = []
+            for version_tuple in package_and_version[new_package]:
+                icon_states.append(is_icon_complete(package=package,
+                                                    version_code=version_tuple[0],
+                                                    repo_dir=repo_dir,
+                                                    app_data=app_data))
+
+            if all(icon_states):
+                icons_exist = True
+            else:
+                icons_exist = False
 
             if metadata_exist and icons_exist:
                 if package_and_version[new_package][0] is None:
                     print(Fore.BLUE + "\tSkipping processing for the package as all the metadata "
                                       "is complete in the YML file.", end="\n\n")
-                    continue
                 else:
                     print(Fore.BLUE + "\tSkipping processing for the package as all the metadata is complete in the "
                                       "YML file and all the icons are available.", end="\n\n")
-                    continue
+
+                continue
 
         if (force_version and not force_metadata and not force_screenshots and not force_icons and metadata_exist
                 and icons_exist):
@@ -874,24 +912,32 @@ def retrieve_info(package_list: dict[str, str],
                 continue
 
         if not force_icons and icons_exist is None:
-            icons_exist = is_icon_complete(package=package,
-                                           version_code=package_and_version[new_package][0],
-                                           repo_dir=repo_dir,
-                                           app_data=app_data)
+            icon_states: list[bool] = []
+            for version_tuple in package_and_version[new_package]:
+                icon_states.append(is_icon_complete(package=package,
+                                                    version_code=version_tuple[0],
+                                                    repo_dir=repo_dir,
+                                                    app_data=app_data))
+
+            if all(icon_states):
+                icons_exist = True
+            else:
+                icons_exist = False
 
         if force_icons or not icons_exist:
             print(Fore.GREEN + "\tDownloading icons...", end="\n\n")
             # Function to download icons needs to check force_icons because there might be cases where one of the icons
             # is missing, with screenshots as long as there is at least one file we assume it's complete.
-            get_icon(resp_int=resp_int,
-                     package=package,
-                     new_package=new_package,
-                     version_code=package_and_version[new_package][0],
-                     repo_dir=repo_dir,
-                     force_icons=force_icons,
-                     app_data=app_data,
-                     icon_not_found_packages=icon_not_found_packages,
-                     store_name=store_name)
+            for version_tuple in package_and_version[new_package]:
+                get_icon(resp_int=resp_int,
+                         package=package,
+                         new_package=new_package,
+                         version_code=version_tuple[0],
+                         repo_dir=repo_dir,
+                         force_icons=force_icons,
+                         app_data=app_data,
+                         icon_not_found_packages=icon_not_found_packages,
+                         store_name=store_name)
             print(Fore.GREEN + f"\tFinished downloading icons for {package}.", end="\n\n")
         else:
             print(Fore.BLUE + f"\tAll icon files for {package} already exist, skipping...", end="\n\n")
