@@ -472,24 +472,27 @@ def main():
                                                     base_name=base_name)
 
                 if new_base_name is not None:
-                    package_list[base_name] = new_base_name
+                    resulting_base_name = new_base_name
                 else:
-                    package_list[base_name] = base_name
+                    resulting_base_name = base_name
+
+                package_list[base_name] = resulting_base_name
 
                 if apk_file_path is not None and os.path.isfile(apk_file_path):
                     apk_info = renamer.get_info(app_file_path=apk_file_path,
                                                 build_tools_path=build_tools_path)
-                    if new_base_name is not None:
-                        package_and_version[new_base_name] = (int(apk_info["Version Code"]),
-                                                              str(apk_info["Version Name"]))
+
+                    if package_and_version.get(resulting_base_name) is None:
+                        package_and_version[resulting_base_name] = [(int(apk_info["Version Code"]),
+                                                                     str(apk_info["Version Name"]))]
                     else:
-                        package_and_version[base_name] = (int(apk_info["Version Code"]),
-                                                          str(apk_info["Version Name"]))
+                        package_and_version[resulting_base_name].append((int(apk_info["Version Code"]),
+                                                                         str(apk_info["Version Name"])))
                 else:
-                    if new_base_name is not None:
-                        package_and_version[new_base_name] = (0, "0")
+                    if package_and_version.get(resulting_base_name) is None:
+                        package_and_version[resulting_base_name] = [(0, "0")]
                     else:
-                        package_and_version[base_name] = (0, "0")
+                        package_and_version[resulting_base_name].append((0, "0"))
 
         retrieve_info(package_list=package_list,
                       package_and_version=package_and_version,
