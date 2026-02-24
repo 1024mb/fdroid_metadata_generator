@@ -1508,7 +1508,7 @@ def get_screenshots(resp: str,
             scrn_div = screenshot_pattern.search(resp).group(1)
         except (AttributeError, IndexError):
             print(Fore.YELLOW + "\tCouldn't get screenshots URLs for {}".format(new_package), end="\n\n")
-            screenshots_not_found_packages.append(package)
+            screenshots_not_found_packages.append(package + " [" + store_name + "]")
             return
 
         img_url_list = screenshot_pattern_alt.findall(scrn_div)
@@ -1517,7 +1517,7 @@ def get_screenshots(resp: str,
 
     if len(img_url_list) == 0:
         print(Fore.YELLOW + "\tCouldn't get screenshots URLs for {}".format(new_package), end="\n\n")
-        screenshots_not_found_packages.append(package)
+        screenshots_not_found_packages.append(package + " [" + store_name + "]")
         return
 
     if screenshots_exist:
@@ -1617,14 +1617,14 @@ def get_icon(resp_int: str,
     if icon_base_url is None:
         if store_patterns.icon_pattern_alt == "":
             print(Fore.YELLOW + "\tCouldn't extract icon URL for {}.".format(new_package), end="\n\n")
-            icon_not_found_packages.append(package)
+            icon_not_found_packages.append(package + " [" + store_name + "]")
             return
         else:
             icon_base_url_alt = extract_icon_url(response_content=resp_int,
                                                  icon_pattern=store_patterns.icon_pattern_alt)
             if icon_base_url_alt is None:
                 print(Fore.YELLOW + "\tCouldn't extract icon URL for {}.".format(new_package), end="\n\n")
-                icon_not_found_packages.append(package)
+                icon_not_found_packages.append(package + " [" + store_name + "]")
                 return
 
     filename = package + "." + str(version_code)
@@ -1635,7 +1635,7 @@ def get_icon(resp_int: str,
         except PermissionError:
             print(Fore.RED + "\tERROR: Can't create directory for \"" + dirname +
                   "\". Permission denied, skipping icon download for this package.", end="\n\n")
-            icon_not_found_packages.append(package)
+            icon_not_found_packages.append(package + " [" + store_name + "]")
             return
 
     if icon_base_url is not None:
