@@ -4,11 +4,11 @@ import re
 import sys
 from http.cookiejar import MozillaCookieJar
 from time import sleep
-from typing import Literal, Any
+from typing import Literal, Any, TypeGuard
 
 import requests
 from colorama import Fore
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from requests import HTTPError
 
 
@@ -83,8 +83,102 @@ class ExtensionUnknown(Exception):
     pass
 
 
+AndroidDeviceType = Literal["Android", "Android TV", "Android Auto", "Wear OS"]
+AndroidDensityName = Literal[
+    "ldpi", "mdpi", "tvdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi", "anydpi", "nodpi", "undefineddpi"]
+AndroidDensityNumber = Literal[120, 160, 213, 240, 320, 480, 640, 65534, 65535, -1]
+AndroidScreenType = Literal["small", "normal", "large", "xlarge"]
+ABI = Literal["x86", "x86_64", "armeabi-v7a", "arm64-v8a", "armeabi", "mips", "mips64"]
+
+ALL_ABIS: tuple[ABI, ...] = ("x86", "x86_64", "armeabi-v7a", "arm64-v8a", "armeabi", "mips", "mips64")
+ALL_DENSITY_NUMBERS: tuple[AndroidDensityNumber, ...] = (120, 160, 240, 320, 480, 640, 65534, 65535, -1)
+ALL_DENSITY_NAMES: tuple[AndroidDensityName, ...] = ("ldpi", "mdpi", "tvdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi",
+                                                     "anydpi",
+                                                     "nodpi", "undefineddpi")
+ALL_DEVICE_TYPES: tuple[AndroidDeviceType, ...] = ("Android", "Android TV", "Android Auto", "Wear OS")
+ALL_SCREEN_TYPES: tuple[AndroidScreenType, ...] = ("small", "normal", "large", "xlarge")
+
+
+class _ApkInfo(BaseModel, validate_assignment=True):
+    OriginalName: str | None = None
+    PackageName: str | None = None
+    Label: str | None = None
+    VersionName: str | None = None
+    VersionCode: int | None = None
+    MinimumSDK: int | None = None
+    MaximumSDK: int | None = None
+    TargetSDK: int | None = None
+    CompileSDK: int | None = None
+    SupportedScreens: list[AndroidScreenType] = Field(default_factory=list)
+    SupportedABIs: list[ABI] = Field(default_factory=list)
+    SupportedDevices: list[AndroidDeviceType] = Field(default_factory=lambda: list(("Android",)))
+    Densities: list[AndroidDensityName] = Field(default_factory=list)
+    Locales: list[str] = Field(default_factory=list)
+
+    def __setattr__(self,
+                    name,
+                    value):
+        current_value = getattr(self, name, None)
+
+        if current_value is None:
+            return super().__setattr__(name, value)
+
+        if isinstance(current_value, list) and isinstance(value, list):
+            merged_list = current_value.copy()
+
+            for item in value:
+                if item not in merged_list:
+                    merged_list.append(item)
+
+            return super().__setattr__(name, merged_list)
+
+        if isinstance(current_value, (str, int)):
+            return None
+
+        return super().__setattr__(name, value)
+
+    @field_validator("OriginalName", "PackageName", "Label", "VersionName", mode="after")
+    @classmethod
+    def empty_string_to_none(cls,
+                             value: str) -> str | None:
+        if value == "":
+            return None
+        else:
+            return value
+
+
+class ApkInfo(_ApkInfo):
+    OriginalName: str
+    PackageName: str
+    Label: str | None
+    VersionName: str
+    VersionCode: int
+    MinimumSDK: int | None
+    MaximumSDK: int | None
+    TargetSDK: int | None
+    CompileSDK: int | None
+    SupportedScreens: list[str] = Field(default_factory=list)
+    SupportedABIs: list[ABI] = Field(default_factory=list)
+    SupportedDevices: list[AndroidDeviceType] = Field(default_factory=lambda: list(("Android",)))
+    Densities: list[AndroidDensityName] = Field(default_factory=list)
+    Locales: list[str] = Field(default_factory=list)
+
+
 SupportedStore = Literal["Play_Store", "Amazon_Store", "Apkcombo_Store"]
 FailType = Literal["Not_Found", "Robot", "Redirection", ""]
+
+DENSITIES_MAPPING: dict[AndroidDensityNumber, AndroidDensityName] = {
+    120: "ldpi",
+    160: "mdpi",
+    213: "tvdpi",
+    240: "hdpi",
+    320: "xhdpi",
+    480: "xxhdpi",
+    640: "xxxhdpi",
+    65534: "anydpi",
+    65535: "nodpi",
+    -1: "undefineddpi"
+}
 
 
 def get_program_dir() -> str:
@@ -121,7 +215,9 @@ def get_page_content(url: str,
 
     if cookie_file is not None:
         cookie_jar = MozillaCookieJar(cookie_file)
+        # noinspection PyTypeChecker
         session.cookies = cookie_jar
+        # noinspection PyUnresolvedReferences
         session.cookies.load()
 
     for _ in range(1, 3):
@@ -206,3 +302,28 @@ def is_none_or_empty(data: dict,
         return True
 
     return False
+
+
+def replace_whitespace(value: str,
+                       separator: str) -> str:
+    return value.replace(" ", separator)
+
+
+def is_abi(value: str) -> TypeGuard[ABI]:
+    return value in ALL_ABIS
+
+
+def is_density_name(value: str) -> TypeGuard[AndroidDensityName]:
+    return value in ALL_DENSITY_NAMES
+
+
+def is_density_number(value: str | int) -> TypeGuard[AndroidDensityNumber]:
+    return int(value) in ALL_DENSITY_NUMBERS
+
+
+def is_device_type(value: str) -> TypeGuard[AndroidDeviceType]:
+    return value in ALL_DEVICE_TYPES
+
+
+def is_screen_type(value: str) -> TypeGuard[AndroidScreenType]:
+    return value in ALL_SCREEN_TYPES
