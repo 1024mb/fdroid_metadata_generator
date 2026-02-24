@@ -381,7 +381,7 @@
     "Apkcombo_Store": {
       "author_name_pattern": "<div class=\"author\"><a class=\"is-link\" href=\"[^\"]*\" rel=\"[^\"]*\">(.+?)</a></div>",
       "author_email_pattern": "",
-      "name_pattern": "<div class=\"app_name\"><h1><a href=\"[^\"]*\" title=\"[^\"]*\">(.+?)</a></h1></div>",
+      "name_pattern": "<div\\s+class=\"app_name\"><h1><a\\s+href=\"[^\"]*\" title=\"[^\"]*\">(.+?)</a></h1>(.*?)</div>",
       "website_pattern": "",
       "category_pattern": "<div class=\"name\">Category</div>\\s+<div class=\"value\"><a class=\"is-link\" href=\"[^\"]*\">(.+?)</a></div>",
       "summary_pattern": "<div class=\"text-description ton\">\\s+(.+?)\\s*<br>",
