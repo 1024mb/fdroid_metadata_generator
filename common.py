@@ -85,16 +85,17 @@ class ExtensionUnknown(Exception):
 
 AndroidDeviceType = Literal["Android", "Android TV", "Android Auto", "Wear OS"]
 AndroidDensityName = Literal[
-    "ldpi", "mdpi", "tvdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi", "anydpi", "nodpi", "undefineddpi"]
+    "ldpi", "mdpi", "tvdpi", "hdpi", "xhdpi", "xxhdpi",
+    "xxxhdpi", "anydpi", "nodpi", "undefineddpi"
+]
 AndroidDensityNumber = Literal[120, 160, 213, 240, 320, 480, 640, 65534, 65535, -1]
 AndroidScreenType = Literal["small", "normal", "large", "xlarge"]
 ABI = Literal["x86", "x86_64", "armeabi-v7a", "arm64-v8a", "armeabi", "mips", "mips64"]
 
 ALL_ABIS: tuple[ABI, ...] = ("x86", "x86_64", "armeabi-v7a", "arm64-v8a", "armeabi", "mips", "mips64")
-ALL_DENSITY_NUMBERS: tuple[AndroidDensityNumber, ...] = (120, 160, 240, 320, 480, 640, 65534, 65535, -1)
+ALL_DENSITY_NUMBERS: tuple[AndroidDensityNumber, ...] = (120, 160, 213, 240, 320, 480, 640, 65534, 65535, -1)
 ALL_DENSITY_NAMES: tuple[AndroidDensityName, ...] = ("ldpi", "mdpi", "tvdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi",
-                                                     "anydpi",
-                                                     "nodpi", "undefineddpi")
+                                                     "anydpi", "nodpi", "undefineddpi")
 ALL_DEVICE_TYPES: tuple[AndroidDeviceType, ...] = ("Android", "Android TV", "Android Auto", "Wear OS")
 ALL_SCREEN_TYPES: tuple[AndroidScreenType, ...] = ("small", "normal", "large", "xlarge")
 
