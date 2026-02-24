@@ -5,6 +5,7 @@ Rename APK and APKS files to new names based on a supplied pattern.
 import argparse
 import copy
 import json
+import logging
 import os
 import platform
 import re
@@ -17,24 +18,22 @@ from datetime import datetime
 
 from colorama import Fore, init
 
-from common import get_program_dir
+from common import (get_program_dir,
+                    _ApkInfo,
+                    replace_whitespace,
+                    ApkInfo,
+                    DENSITIES_MAPPING,
+                    ABI,
+                    is_abi,
+                    AndroidDensityName,
+                    is_density_number,
+                    AndroidScreenType,
+                    is_screen_type)
 
 APK_EXTENSION = ".apk"
 APKS_EXTENSION = ".apks"
 
-PACKAGE_NAME = "Package Name"
-PACKAGE_VERSION_CODE = "Version Code"
-PACKAGE_VERSION_NAME = "Version Name"
-PACKAGE_MIN_SDK = "Minimum SDK"
-PACKAGE_MAX_SDK = "Maximum SDK"
-PACKAGE_TARGET_SDK = "Target SDK"
-PACKAGE_COMPILE_SDK = "Compile SDK"
-PACKAGE_SUPPORTED_SCREENS = "Supported Screens"
-PACKAGE_SUPPORTED_ABIS = "Supported ABIs"
-PACKAGE_SUPPORTED_DEVICES = "Supported Devices"
-PACKAGE_DENSITIES = "Densities"
-PACKAGE_LOCALES = "Locales"
-PACKAGE_LABEL = "Label"
+sdk_names: dict[str, tuple[str, str]] | None = None
 
 
 def main():
@@ -341,9 +340,6 @@ def process_file(item_path: str,
                  cert_file: str | None = None,
                  certificate_password: str | None = None,
                  skip_if_exists: bool = False) -> None:
-
-    apk_info = {}
-
     if os.path.isdir(item_path):
         return
 
@@ -353,10 +349,9 @@ def process_file(item_path: str,
 
     apk_info = get_info(app_file_path=item_path,
                         build_tools_path=build_tools_path,
-                        errored_apps_list=errored_apps_list,
-                        apk_info=apk_info)
+                        errored_apps_list=errored_apps_list)
 
-    if len(apk_info) == 0:
+    if apk_info is None:
         return
 
     new_file_name = rename_file(pattern=pattern,
@@ -401,7 +396,7 @@ def write_log(items: list,
 
 def rename_file(file_path: str,
                 pattern: str,
-                apk_info: dict,
+                apk_info: _ApkInfo,
                 separator: str = "_",
                 errored_apps_list: list = None,
                 skip_if_exists: bool = False) -> str | None:
@@ -422,92 +417,104 @@ def rename_file(file_path: str,
     new_name = pattern
 
     if "%original_name%" in new_name:
-        new_name = new_name.replace("%original_name%", apk_info["Original Name"].replace(" ", separator))
+        new_name = new_name.replace("%original_name%",
+                                    replace_whitespace(get_as_string(apk_info.OriginalName), separator))
 
     if "%label%" in new_name:
-        new_name = new_name.replace("%label%", apk_info[PACKAGE_LABEL].replace(" ", separator))
+        new_name = new_name.replace("%label%", replace_whitespace(get_as_string(apk_info.Label), separator))
     if "%name%" in new_name:
-        new_name = new_name.replace("%name%", apk_info[PACKAGE_LABEL].replace(" ", separator))
+        new_name = new_name.replace("%name%", replace_whitespace(get_as_string(apk_info.Label), separator))
     if "%version%" in new_name:
-        new_name = new_name.replace("%version%", apk_info[PACKAGE_VERSION_NAME].replace(" ", separator))
+        new_name = new_name.replace("%version%", replace_whitespace(get_as_string(apk_info.VersionName), separator))
     if "%version_name%" in new_name:
-        new_name = new_name.replace("%version_name%", apk_info[PACKAGE_VERSION_NAME].replace(" ", separator))
+        new_name = new_name.replace("%version_name%",
+                                    replace_whitespace(get_as_string(apk_info.VersionName), separator))
     if "%build%" in new_name:
-        new_name = new_name.replace("%build%", apk_info[PACKAGE_VERSION_CODE].replace(" ", separator))
+        new_name = new_name.replace("%build%", replace_whitespace(get_as_string(apk_info.VersionCode), separator))
     if "%version_code%" in new_name:
-        new_name = new_name.replace("%version_code%", apk_info[PACKAGE_VERSION_CODE].replace(" ", separator))
+        new_name = new_name.replace("%version_code%",
+                                    replace_whitespace(get_as_string(apk_info.VersionCode), separator))
     if "%package%" in new_name:
-        new_name = new_name.replace("%package%", apk_info[PACKAGE_NAME].replace(" ", separator))
+        new_name = new_name.replace("%package%", replace_whitespace(get_as_string(apk_info.PackageName), separator))
     if "%package_name%" in new_name:
-        new_name = new_name.replace("%package_name%", apk_info[PACKAGE_NAME].replace(" ", separator))
+        new_name = new_name.replace("%package_name%",
+                                    replace_whitespace(get_as_string(apk_info.PackageName), separator))
     if "%package_id%" in new_name:
-        new_name = new_name.replace("%package_id%", apk_info[PACKAGE_NAME].replace(" ", separator))
+        new_name = new_name.replace("%package_id%", replace_whitespace(get_as_string(apk_info.PackageName), separator))
 
     if "%min_sdk%" in new_name:
-        new_name = new_name.replace("%min_sdk%", apk_info[PACKAGE_MIN_SDK].replace(" ", separator))
+        new_name = new_name.replace("%min_sdk%", replace_whitespace(get_as_string(apk_info.MinimumSDK), separator))
     if "%max_sdk%" in new_name:
-        new_name = new_name.replace("%max_sdk%", apk_info[PACKAGE_MAX_SDK].replace(" ", separator))
+        new_name = new_name.replace("%max_sdk%", replace_whitespace(get_as_string(apk_info.MaximumSDK), separator))
     if "%target_sdk%" in new_name:
-        new_name = new_name.replace("%target_sdk%", apk_info[PACKAGE_TARGET_SDK].replace(" ", separator))
+        new_name = new_name.replace("%target_sdk%", replace_whitespace(get_as_string(apk_info.TargetSDK), separator))
     if "%compile_sdk%" in new_name:
-        new_name = new_name.replace("%compile_sdk%", apk_info[PACKAGE_COMPILE_SDK].replace(" ", separator))
+        new_name = new_name.replace("%compile_sdk%", replace_whitespace(get_as_string(apk_info.CompileSDK), separator))
 
     if "%min_android_num%" in new_name:
         new_name = new_name.replace("%min_android_num%",
-                                    translate_sdk(apk_info[PACKAGE_MIN_SDK], True).replace(" ", separator))
+                                    replace_whitespace(translate_sdk(get_as_string(apk_info.MinimumSDK), True),
+                                                       separator))
     if "%max_android_num%" in new_name:
         new_name = new_name.replace("%max_android_num%",
-                                    translate_sdk(apk_info[PACKAGE_MAX_SDK], True).replace(" ", separator))
+                                    replace_whitespace(translate_sdk(get_as_string(apk_info.MaximumSDK), True),
+                                                       separator))
     if "%target_android_num%" in new_name:
         new_name = new_name.replace("%target_android_num%",
-                                    translate_sdk(apk_info[PACKAGE_TARGET_SDK], True).replace(" ", separator))
+                                    replace_whitespace(translate_sdk(get_as_string(apk_info.TargetSDK), True),
+                                                       separator))
     if "%compile_android_num%" in new_name:
         new_name = new_name.replace("%compile_android_num%",
-                                    translate_sdk(apk_info[PACKAGE_COMPILE_SDK], True).replace(" ", separator))
+                                    replace_whitespace(translate_sdk(get_as_string(apk_info.CompileSDK), True),
+                                                       separator))
 
     if "%min_android_name%" in new_name:
         new_name = new_name.replace("%min_android_name%",
-                                    translate_sdk(apk_info[PACKAGE_MIN_SDK], False).replace(" ", separator))
+                                    replace_whitespace(translate_sdk(get_as_string(apk_info.MinimumSDK), False),
+                                                       separator))
     if "%max_android_name%" in new_name:
         new_name = new_name.replace("%max_android_name%",
-                                    translate_sdk(apk_info[PACKAGE_MAX_SDK], False).replace(" ", separator))
+                                    replace_whitespace(translate_sdk(get_as_string(apk_info.MaximumSDK), False),
+                                                       separator))
     if "%target_android_name%" in new_name:
         new_name = new_name.replace("%target_android_name%",
-                                    translate_sdk(apk_info[PACKAGE_TARGET_SDK], False).replace(" ", separator))
+                                    replace_whitespace(translate_sdk(get_as_string(apk_info.TargetSDK), False),
+                                                       separator))
     if "%compile_android_name%" in new_name:
         new_name = new_name.replace("%compile_android_name%",
-                                    translate_sdk(apk_info[PACKAGE_COMPILE_SDK], False).replace(" ", separator))
+                                    replace_whitespace(translate_sdk(get_as_string(apk_info.CompileSDK), False),
+                                                       separator))
 
     if "%supported_screens%" in new_name:
-        new_name = new_name.replace("%screens%",
-                                    join_values(apk_info[PACKAGE_SUPPORTED_SCREENS]).replace(" ", separator))
+        new_name = new_name.replace("%supported_screens%",
+                                    join_values(apk_info.SupportedScreens).replace(" ", separator))
     if "%screens%" in new_name:
         new_name = new_name.replace("%screens%",
-                                    join_values(apk_info[PACKAGE_SUPPORTED_SCREENS]).replace(" ", separator))
+                                    join_values(apk_info.SupportedScreens).replace(" ", separator))
     if "%supported_dpis%" in new_name:
         new_name = new_name.replace("%supported_dpis%",
-                                    join_values(apk_info[PACKAGE_DENSITIES]).replace(" ", separator))
+                                    join_values(apk_info.Densities).replace(" ", separator))
     if "%dpis%" in new_name:
         new_name = new_name.replace("%dpis%",
-                                    join_values(apk_info[PACKAGE_DENSITIES]).replace(" ", separator))
+                                    join_values(apk_info.Densities).replace(" ", separator))
     if "%supported_abis%" in new_name:
         new_name = new_name.replace("%supported_abis%",
-                                    join_values(apk_info[PACKAGE_SUPPORTED_ABIS]).replace(" ", separator))
+                                    join_values(apk_info.SupportedABIs).replace(" ", separator))
     if "%abis%" in new_name:
         new_name = new_name.replace("%abis%",
-                                    join_values(apk_info[PACKAGE_SUPPORTED_ABIS]).replace(" ", separator))
+                                    join_values(apk_info.SupportedABIs).replace(" ", separator))
     if "%supported_devices%" in new_name:
         new_name = new_name.replace("%supported_devices%",
-                                    join_values(apk_info[PACKAGE_SUPPORTED_DEVICES]).replace(" ", separator))
+                                    join_values(apk_info.SupportedDevices).replace(" ", separator))
     if "%devices%" in new_name:
         new_name = new_name.replace("%devices%",
-                                    join_values(apk_info[PACKAGE_SUPPORTED_DEVICES]).replace(" ", separator))
+                                    join_values(apk_info.SupportedDevices).replace(" ", separator))
     if "%supported_locales%" in new_name:
         new_name = new_name.replace("%supported_locales%",
-                                    join_values(apk_info[PACKAGE_LOCALES]).replace(" ", separator))
+                                    join_values(apk_info.Locales).replace(" ", separator))
     if "%locales%" in new_name:
         new_name = new_name.replace("%locales%",
-                                    join_values(apk_info[PACKAGE_LOCALES]).replace(" ", separator))
+                                    join_values(apk_info.Locales).replace(" ", separator))
 
     new_name = sanitize_name(name=new_name, separator=separator)
 
@@ -581,42 +588,49 @@ def sanitize_name(name: str,
     return name
 
 
-def join_values(list_values: list) -> str:
-    new_name = ""
+def join_values(list_values: list[str]) -> str:
+    new_value = ""
 
     if len(list_values) != 0:
         for value in list_values:
-            new_name += value + ","
+            new_value += value + ","
 
-        if new_name.endswith(","):
-            new_name = new_name[:-1]
+        if new_value.endswith(","):
+            new_value = new_value[:-1]
 
-    return new_name
+    return new_value
 
 
-def translate_sdk(sdk: str,
+def load_sdk_names():
+    global sdk_names
+
+    if sdk_names is not None:
+        return
+
+    with open(os.path.join(get_program_dir(), "sdk_names.json"), "r", encoding="utf_8") as stream:
+        sdk_names = json.load(stream)
+
+
+def translate_sdk(sdk: str | int,
                   number: bool) -> str:
-
     if sdk == "":
         return ""
 
-    stream = open(os.path.join(get_program_dir(), "sdk_names.json"), "r", encoding="utf_8")
-    sdk_names = json.load(stream)
+    load_sdk_names()
 
-    sdk = "SDK-" + sdk
+    sdk_name = f"SDK-{sdk}"
 
     if number:
-        new_sdk_name = sdk_names[sdk][0]
+        new_sdk_name = sdk_names[sdk_name][0]
     else:
-        new_sdk_name = sdk_names[sdk][1]
+        new_sdk_name = sdk_names[sdk_name][1]
 
     return new_sdk_name
 
 
 def get_info(app_file_path: str,
              build_tools_path: str = None,
-             errored_apps_list: list = None,
-             apk_info: dict = None) -> dict:
+             errored_apps_list: list = None) -> ApkInfo | None:
     """
     | Get information from an APK or APKS file.
     |
@@ -641,14 +655,9 @@ def get_info(app_file_path: str,
      this directory unless `sign_apk` is `True` in which case *apksigner* will be used too. If not supplied, they will
      be searched for in **PATH**.
     :param errored_apps_list: List to store errored files. If not supplied, no errored files are stored.
-    :param apk_info: Dictionary to store the APK information. If not supplied, a new dict is created.
 
-    :return: Dictionary containing the information about the APK/APKS file.
+    :return: Object containing the information about the APK/APKS file.
     """
-
-    if apk_info is None:
-        apk_info = {}
-
     is_apks = False
     apks_content = []
 
@@ -657,13 +666,11 @@ def get_info(app_file_path: str,
     if os.path.splitext(app_file_path)[1].lower() == APKS_EXTENSION:
         temp_path = pre_process_apks(apks_file=app_file_path, temp_path=temp_path)
         if temp_path is None:
-            return {}
+            return None
         is_apks = True
 
     app_directory = os.path.dirname(app_file_path)
     app_filename = os.path.basename(app_file_path)
-
-    apk_info["Original Name"] = os.path.splitext(app_filename)[0]
 
     if is_apks:
         apks_content = sorted(os.listdir(temp_path))
@@ -686,23 +693,22 @@ def get_info(app_file_path: str,
         sys.exit(1)
 
     if badging_content is None:
-        return {}
+        return None
 
-    apk_info = parse_badging(badging_content=badging_content,
-                             apk_info=apk_info)
+    apk_info = parse_badging(badging_content=badging_content)
+    apk_info.OriginalName = os.path.splitext(app_filename)[0]
 
     # Essential information, if we couldn't get this info then something is either wrong with this program or the
     # APK file.
-    if len(apk_info[PACKAGE_NAME]) == 0 or len(apk_info[PACKAGE_VERSION_NAME]) == 0 or len(
-            apk_info[PACKAGE_VERSION_CODE]) == 0:
+    if apk_info.PackageName is None or apk_info.VersionName is None or apk_info.VersionCode is None:
         basename = os.path.basename(app_filename)
         print(Fore.RED + "\tERROR: We couldn't extract information from {}, please report this.".format(basename),
               end="\n\n")
         if errored_apps_list is not None:
             errored_apps_list.append(app_file_path)
-        return {}
+        return None
 
-    return apk_info
+    return ApkInfo.model_validate(apk_info.model_dump(), strict=True)
 
 
 def badging(app_file_path: str,
@@ -790,35 +796,23 @@ def badging(app_file_path: str,
         return output
 
 
-def parse_badging(badging_content: str,
-                  apk_info: dict) -> dict:
+def parse_badging(badging_content: str) -> _ApkInfo:
 
     badging_lines = badging_content.splitlines()
 
     any_density = False
+    density_list: list[str] = []
 
-    apk_info[PACKAGE_SUPPORTED_DEVICES] = ["Android"]
-    apk_info[PACKAGE_SUPPORTED_SCREENS] = []
-    apk_info[PACKAGE_DENSITIES] = []
-    apk_info[PACKAGE_SUPPORTED_ABIS] = []
-    apk_info[PACKAGE_LOCALES] = []
-    apk_info[PACKAGE_LABEL] = ""
-    apk_info[PACKAGE_NAME] = ""
-    apk_info[PACKAGE_VERSION_CODE] = ""
-    apk_info[PACKAGE_VERSION_NAME] = ""
-    apk_info[PACKAGE_COMPILE_SDK] = ""
-    apk_info[PACKAGE_MIN_SDK] = ""
-    apk_info[PACKAGE_MAX_SDK] = ""
-    apk_info[PACKAGE_TARGET_SDK] = ""
+    apk_info = _ApkInfo()
 
     if "leanback-launchable-activity" in badging_content:
-        apk_info[PACKAGE_SUPPORTED_DEVICES].append("Android TV")
+        apk_info.SupportedDevices.append("Android TV")
 
     if "com.google.android.gms.car.application" in badging_content:
-        apk_info[PACKAGE_SUPPORTED_DEVICES].append("Android Auto")
+        apk_info.SupportedDevices.append("Android Auto")
 
     if "android.hardware.type.watch" in badging_content:
-        apk_info[PACKAGE_SUPPORTED_DEVICES].append("Wear OS")
+        apk_info.SupportedDevices.append("Wear OS")
 
     for line in badging_lines:
         line = line.strip()
@@ -833,28 +827,30 @@ def parse_badging(badging_content: str,
             value = split_values[1].strip()
 
         if key == "application-label":
-            get_label(apk_info, value)
+            apk_info.Label = get_label(value)
         elif key == "package":
-            get_package_info(apk_info, value)
-        elif key == "sdkVersion" and apk_info.get(PACKAGE_MIN_SDK, "") == "":
-            get_sdk_version(apk_info, value)
-        elif key == "maxSdkVersion" and apk_info.get(PACKAGE_MAX_SDK, "") == "":
-            get_max_sdk_version(apk_info, value)
-        elif key == "targetSdkVersion" and apk_info.get(PACKAGE_TARGET_SDK, "") == "":
-            get_target_sdk_version(apk_info, value)
+            apk_info.PackageName = get_package_name(value)
+            apk_info.VersionName = get_version_name(value)
+            apk_info.VersionCode = get_version_code(value)
+            apk_info.CompileSDK = get_compile_sdk(value)
+        elif key == "sdkVersion":
+            apk_info.MinimumSDK = get_int_value(value)
+        elif key == "maxSdkVersion":
+            apk_info.MaximumSDK = get_int_value(value)
+        elif key == "targetSdkVersion":
+            apk_info.TargetSDK = get_int_value(value)
         elif key == "supports-screens":
-            get_supported_screens(apk_info, value)
+            apk_info.SupportedScreens = get_supported_screens(value)
         elif key == "supports-any-density":
-            if value.replace("'", "") == "true":
-                any_density = True
+            any_density = get_bool_value(value)
         elif key == "densities":
-            get_densities(apk_info, value)
+            density_list = get_list_value(value)
         elif key == "native-code" or key == "alt-native-code":
-            get_supported_abis(apk_info, value)
+            apk_info.SupportedABIs = get_abis(value)
         elif key == "locales":
-            get_supported_locales(apk_info, value)
+            apk_info.Locales = get_list_value(value, excluded_values=["--_--", "---"])
 
-    rename_densities(apk_info, any_density)
+    apk_info.Densities = rename_densities(density_list, any_density)
 
     return apk_info
 
@@ -1085,135 +1081,148 @@ def restore_dates(old_app_stats: os.stat_result,
             print(e, end="\n\n")
 
 
-def get_label(apk_info: dict,
-              value: str) -> None:
-    if value.replace("'", "").strip() != "":
-        apk_info[PACKAGE_LABEL] = value.replace("'", "")
+def get_label(value: str) -> str | None:
+    if value.startswith("'"):
+        if value.endswith("'"):
+            value = value[:-1]
+        value = value[1:]
+
+    if value == "":
+        return None
+
+    return value
 
 
-def get_package_info(apk_info: dict,
-                     value: str) -> None:
-    if apk_info.get(PACKAGE_NAME, "") == "":
-        try:
-            apk_info[PACKAGE_NAME] = re.search(r"(?:^|\s)name='([^']*)'", value).group(1)
-        except (AttributeError, IndexError):
-            pass
-    if apk_info.get(PACKAGE_VERSION_CODE, "") == "":
-        try:
-            apk_info[PACKAGE_VERSION_CODE] = re.search(r"(?:^|\s)versionCode='([^']*)'", value).group(1)
-        except (AttributeError, IndexError):
-            pass
-    if apk_info.get(PACKAGE_VERSION_NAME, "") == "":
-        try:
-            apk_info[PACKAGE_VERSION_NAME] = re.search(r"(?:^|\s)versionName='([^']*)'", value).group(1)
-        except (AttributeError, IndexError):
-            pass
-    if apk_info.get(PACKAGE_COMPILE_SDK, "") == "":
-        try:
-            apk_info[PACKAGE_COMPILE_SDK] = re.search(r"(?:^|\s)compileSdkVersion='([^']*)'", value).group(1)
-        except (AttributeError, IndexError):
-            pass
+def get_package_name(value: str) -> str | None:
+    try:
+        return re.search(r"(?:^|\s)name='([^']*)'", value).group(1)
+    except (AttributeError, IndexError):
+        return None
 
 
-def get_sdk_version(apk_info: dict,
-                    value: str) -> None:
-    if value.replace("'", "").strip() != "":
-        apk_info[PACKAGE_MIN_SDK] = value.replace("'", "")
+def get_version_code(value: str) -> int | None:
+    try:
+        return int(re.search(r"(?:^|\s)versionCode='([^']*)'", value).group(1))
+    except (AttributeError, IndexError):
+        return None
 
 
-def get_max_sdk_version(apk_info: dict,
-                        value: str) -> None:
-    if value.replace("'", "").strip() != "":
-        apk_info[PACKAGE_MAX_SDK] = value.replace("'", "")
+def get_version_name(value: str) -> str | None:
+    try:
+        return re.search(r"(?:^|\s)versionName='([^']*)'", value).group(1)
+    except (AttributeError, IndexError):
+        return None
 
 
-def get_target_sdk_version(apk_info: dict,
-                           value: str) -> None:
-    if value.replace("'", "").strip() != "":
-        apk_info[PACKAGE_TARGET_SDK] = value.replace("'", "")
+def get_compile_sdk(value: str) -> int | None:
+    try:
+        return int(re.search(r"(?:^|\s)compileSdkVersion='([^']*)'", value).group(1))
+    except (AttributeError, IndexError):
+        return None
 
 
-def get_supported_screens(apk_info: dict,
-                          value: str) -> None:
-    if value.replace("'", "").strip() != "":
-        value = value.replace("'", "").split()
+def get_int_value(value: str) -> int | None:
+    processed_value = value.replace("'", "").strip()
 
-        if len(apk_info[PACKAGE_SUPPORTED_SCREENS]) != 0:
-            for screen in value:
-                if screen not in apk_info[PACKAGE_SUPPORTED_SCREENS]:
-                    apk_info[PACKAGE_SUPPORTED_SCREENS].append(screen)
+    if processed_value == "":
+        return None
+    else:
+        return int(processed_value)
+
+
+def get_str_value(value: str) -> str | None:
+    processed_value = value.replace("'", "").strip()
+
+    if processed_value == "":
+        return None
+    else:
+        return processed_value
+
+
+def get_bool_value(value: str) -> bool:
+    processed_value = get_str_value(value)
+
+    if processed_value is None:
+        return False
+    elif processed_value.lower() == "true":
+        return True
+    elif processed_value.lower() == "false":
+        return False
+    else:
+        raise ValueError(f"Value is not a boolean: {value}")
+
+
+def get_list_value(value: str,
+                   excluded_values: list[str] = None) -> list[str]:
+    processed_value = get_str_value(value)
+
+    if processed_value is None:
+        return []
+
+    if excluded_values is None:
+        excluded_values = []
+
+    item_set: set[str] = set()
+
+    for item in processed_value.split():
+        if item in excluded_values:
+            continue
+
+        item_set.add(item)
+
+    return list(item_set)
+
+
+def rename_densities(density_list: list[str],
+                     any_density: bool) -> list[AndroidDensityName]:
+    densities: set[AndroidDensityName] = set()
+
+    for density in density_list:
+        density = int(density)
+        if is_density_number(density):
+            densities.add(DENSITIES_MAPPING[density])
         else:
-            for screen in value:
-                apk_info[PACKAGE_SUPPORTED_SCREENS].append(screen)
+            logging.warning(f"Unknown density: {density}")
+
+    if any_density:
+        densities.add("anydpi")
+
+    return list(densities)
 
 
-def get_supported_locales(apk_info: dict,
-                          value: str) -> None:
-    if value.replace("'", "").strip() != "":
-        value = value.replace("'", "").split()
+def get_as_string(value: str | int | None) -> str:
+    if value is None:
+        return ""
+    else:
+        return str(value)
 
-        if len(apk_info[PACKAGE_LOCALES]) != 0:
-            for locale in value:
-                if value == "--_--" or value == "---":
-                    continue
-                if locale not in apk_info[PACKAGE_LOCALES]:
-                    apk_info[PACKAGE_LOCALES].append(locale)
+
+def get_abis(value: str) -> list[ABI]:
+    abi_list = get_list_value(value)
+
+    abis: set[ABI] = set()
+
+    for item in abi_list:
+        if is_abi(item):
+            abis.add(item)
         else:
-            for locale in value:
-                if value == "'--_--'" or value == "'---'":
-                    continue
-                apk_info[PACKAGE_LOCALES].append(locale)
+            logging.warning(f"Unknown ABI: {item}")
+
+    return list(abis)
 
 
-def get_densities(apk_info: dict,
-                  value: str) -> None:
-    if value.replace("'", "").strip() != "":
-        value = value.replace("'", "").split()
+def get_supported_screens(value: str) -> list[AndroidScreenType]:
+    screen_list = get_list_value(value)
 
-        if len(apk_info[PACKAGE_DENSITIES]) != 0:
-            for density in value:
-                if density not in apk_info[PACKAGE_DENSITIES]:
-                    apk_info[PACKAGE_DENSITIES].append(density)
+    screen_types: set[AndroidScreenType] = set()
+
+    for item in screen_list:
+        if is_screen_type(item):
+            screen_types.add(item)
         else:
-            for density in value:
-                apk_info[PACKAGE_DENSITIES].append(density)
+            logging.warning(f"Unknown screen: {item}")
 
-
-def get_supported_abis(apk_info: dict,
-                       value: str) -> None:
-    if value.replace("'", "").strip() != "":
-        value = value.replace("'", "").split()
-
-        if len(apk_info[PACKAGE_SUPPORTED_ABIS]) != 0:
-            for abi in value:
-                if abi not in apk_info[PACKAGE_SUPPORTED_ABIS]:
-                    apk_info[PACKAGE_SUPPORTED_ABIS].append(abi)
-        else:
-            for abi in value:
-                apk_info[PACKAGE_SUPPORTED_ABIS].append(abi)
-
-
-def rename_densities(apk_info: dict,
-                     any_density: bool) -> None:
-    densities_dict = {
-        "120": "ldpi",
-        "160": "mdpi",
-        "240": "hdpi",
-        "320": "xhdpi",
-        "480": "xxhdpi",
-        "640": "xxxhdpi",
-        "65534": "anydpi",
-        "65535": "nodpi",
-        "-1": "undefineddpi"
-    }
-
-    for x in densities_dict.keys():
-        if x in apk_info[PACKAGE_DENSITIES]:
-            index = apk_info[PACKAGE_DENSITIES].index(x)
-            apk_info[PACKAGE_DENSITIES][index] = densities_dict[x]
-
-    if any_density and "anydpi" not in apk_info[PACKAGE_DENSITIES]:
-        apk_info[PACKAGE_DENSITIES].append("anydpi")
+    return list(screen_types)
 
 
 if __name__ == "__main__":

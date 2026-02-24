@@ -467,32 +467,37 @@ def main():
 
             if os.path.splitext(item)[1].lower() != ".yml":
                 print(Fore.YELLOW + "WARNING: Skipping {}.".format(item), end="\n\n")
+                continue
+
+            new_base_name = get_new_packagename(replacement_file=replacement_file,
+                                                base_name=base_name)
+
+            if new_base_name is not None:
+                resulting_base_name = new_base_name
             else:
-                new_base_name = get_new_packagename(replacement_file=replacement_file,
-                                                    base_name=base_name)
+                resulting_base_name = base_name
 
-                if new_base_name is not None:
-                    resulting_base_name = new_base_name
+            package_list[base_name] = resulting_base_name
+
+            if apk_file_path is not None and os.path.isfile(apk_file_path):
+                apk_info = renamer.get_info(app_file_path=apk_file_path,
+                                            build_tools_path=build_tools_path)
+
+                if apk_info is None:
+                    print(Fore.RED + f"\tERROR: Couldn't retrieve information for APK file: {apk_file_path}")
+                    continue
+
+                if package_and_version.get(resulting_base_name) is None:
+                    package_and_version[resulting_base_name] = [(apk_info.VersionCode,
+                                                                 apk_info.VersionName)]
                 else:
-                    resulting_base_name = base_name
-
-                package_list[base_name] = resulting_base_name
-
-                if apk_file_path is not None and os.path.isfile(apk_file_path):
-                    apk_info = renamer.get_info(app_file_path=apk_file_path,
-                                                build_tools_path=build_tools_path)
-
-                    if package_and_version.get(resulting_base_name) is None:
-                        package_and_version[resulting_base_name] = [(int(apk_info["Version Code"]),
-                                                                     str(apk_info["Version Name"]))]
-                    else:
-                        package_and_version[resulting_base_name].append((int(apk_info["Version Code"]),
-                                                                         str(apk_info["Version Name"])))
+                    package_and_version[resulting_base_name].append((apk_info.VersionCode,
+                                                                     apk_info.VersionName))
+            else:
+                if package_and_version.get(resulting_base_name) is None:
+                    package_and_version[resulting_base_name] = [(0, "0")]
                 else:
-                    if package_and_version.get(resulting_base_name) is None:
-                        package_and_version[resulting_base_name] = [(0, "0")]
-                    else:
-                        package_and_version[resulting_base_name].append((0, "0"))
+                    package_and_version[resulting_base_name].append((0, "0"))
 
         retrieve_info(package_list=package_list,
                       package_and_version=package_and_version,
@@ -516,7 +521,12 @@ def main():
 
             if os.path.isfile(apk_file_path) and os.path.splitext(apk_file)[1].lower() == ".apk":
                 apk_info = renamer.get_info(apk_file_path)
-                base_name = apk_info["Package Name"]
+
+                if apk_info is None:
+                    print(Fore.RED + f"\tERROR: Couldn't retrieve information for APK file: {apk_file_path}")
+                    continue
+
+                base_name = apk_info.PackageName
                 new_base_name = get_new_packagename(replacement_file=replacement_file,
                                                     base_name=base_name)
 
@@ -528,11 +538,11 @@ def main():
                 package_list[base_name] = resulting_base_name
 
                 if package_and_version.get(resulting_base_name) is None:
-                    package_and_version[resulting_base_name] = [(int(apk_info["Version Code"]),
-                                                                 str(apk_info["Version Name"]))]
+                    package_and_version[resulting_base_name] = [(apk_info.VersionCode,
+                                                                 apk_info.VersionName)]
                 else:
-                    package_and_version[resulting_base_name].append((int(apk_info["Version Code"]),
-                                                                     str(apk_info["Version Name"])))
+                    package_and_version[resulting_base_name].append((apk_info.VersionCode,
+                                                                     apk_info.VersionName))
 
         print(Fore.GREEN + "Finished getting package names, version names and version codes.", end="\n\n")
 
@@ -628,7 +638,7 @@ def map_apk_to_packagename(repo_dir: str) -> dict[str, str]:
     for apk_file in os.listdir(repo_dir):
         apk_file_path = os.path.join(repo_dir, apk_file)
         if os.path.isfile(apk_file_path) and os.path.splitext(apk_file_path)[1].lower() == ".apk":
-            mapped_apk_files[renamer.get_info(apk_file_path)["Package Name"]] = apk_file
+            mapped_apk_files[renamer.get_info(apk_file_path).PackageName] = apk_file
 
     return mapped_apk_files
 
