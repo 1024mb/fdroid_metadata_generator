@@ -1184,14 +1184,22 @@ def get_name(package_content: dict,
              use_eng_name: bool,
              store_name: SupportedStore) -> None:
     if package_content.get("Name", "") == "" or package_content.get("Name") is None or force_metadata:
-
         if use_eng_name:
             resp_final = resp_int
         else:
             resp_final = resp
 
         try:
-            package_content["Name"] = html.unescape(name_pattern.search(resp_final).group(1)).strip()
+            matches = name_pattern.search(resp_final)
+
+            if len(matches.groups()) == 0:
+                raise IndexError
+
+            name = ""
+            for item in matches.groups():
+                name += item
+
+            package_content["Name"] = html.unescape(name).strip()
         except (IndexError, AttributeError):
             print(Fore.YELLOW + "\tWARNING: Couldn't get the application name.", end="\n\n")
             name_not_found_packages.append(package + " [" + store_name + "]")
