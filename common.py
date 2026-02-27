@@ -197,13 +197,13 @@ DENSITIES_MAPPING: dict[AndroidDensityNumber, AndroidDensityName] = {
 }
 
 ABIS_ORDER: dict[ABI, int] = {
-    "armeabi": 1,
-    "armeabi-v7a": 2,
-    "arm64-v8a": 3,
-    "x86": 4,
-    "x86_64": 5,
-    "mips": 6,
-    "mips64": 7
+    "armeabi": 0,
+    "armeabi-v7a": 1,
+    "arm64-v8a": 2,
+    "x86": 3,
+    "x86_64": 4,
+    "mips": 5,
+    "mips64": 6
 }
 
 
