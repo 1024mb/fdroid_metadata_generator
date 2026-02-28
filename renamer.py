@@ -5,7 +5,6 @@ Rename APK and APKS files to new names based on a supplied pattern.
 import argparse
 import copy
 import json
-import logging
 import os
 import platform
 import re
@@ -76,6 +75,12 @@ def main():
                         help="Replace any white space and invalid characters in the filename with this character. "
                              "It doesn't apply to ABIs, densities, screens, locales and supported devices."
                              " Optional, default is one underscore (_).",
+                        default=["_"],
+                        type=str,
+                        nargs=1)
+    parser.add_argument("--invalid-char-replacement",
+                        help="Replace invalid characters in the dir and file names with the specified string. "
+                             "Optional, default is one underscore (_).",
                         default=["_"],
                         type=str,
                         nargs=1)
@@ -152,13 +157,14 @@ def main():
         log_path = os.path.abspath(args.log_path[0])
 
     item_path = os.path.abspath(args.path[0])
-    pattern = args.pattern[0]  # type: str
-    separator = args.separator[0]  # type: str
+    pattern: str = args.pattern[0]
+    separator: str = args.separator[0]
+    invalid_char_replacement: str = args.invalid_char_replacement[0]
 
-    no_log = args.no_log  # type: bool
-    skip_if_exists = args.skip_if_exists  # type: bool
-    convert_apks = args.convert_apks  # type: bool
-    sign_apk = args.sign_apk  # type: bool
+    no_log: bool = args.no_log
+    skip_if_exists: bool = args.skip_if_exists
+    convert_apks: bool = args.convert_apks
+    sign_apk: bool = args.sign_apk
 
     if build_tools_path is None:
         if shutil.which("aapt") is None:
@@ -231,7 +237,8 @@ def main():
                  key_file=key_file,
                  cert_file=cert_file,
                  certificate_password=certificate_password,
-                 skip_if_exists=skip_if_exists)
+                 skip_if_exists=skip_if_exists,
+                 invalid_char_replacement=invalid_char_replacement)
 
     if len(errored_apps_list) > 0 and not no_log:
         write_log(items=errored_apps_list,
@@ -252,7 +259,8 @@ def process_path(item_path: str,
                  key_file: str | None = None,
                  cert_file: str | None = None,
                  certificate_password: str | None = None,
-                 skip_if_exists: bool = False) -> None:
+                 skip_if_exists: bool = False,
+                 invalid_char_replacement: str | None = None) -> None:
     """
     | Rename APK and APKS files based on the supplied pattern.
     |
@@ -282,7 +290,7 @@ def process_path(item_path: str,
     :param pattern: Pattern for file renaming.
     :param separator: Character to replace with any spaces and illegal characters found in the placeholder values.
     :param errored_apps_list: List to store errored files.
-    :param build_tools_path: Path to build-tools directory of the Android SDK. Only *aapt* and *aapt2* are used from
+    :param build_tools_path: Path to the build-tools directory of the Android SDK. Only *aapt* and *aapt2* are used from
      this directory unless `sign_apk` is `True` in which case *apksigner* will be used too. If not supplied, they will
      be searched for in **PATH**.
     :param convert_apks: Whether to convert APKS files to APK. Defaults to `False`.
@@ -292,6 +300,7 @@ def process_path(item_path: str,
     :param cert_file: Path to the certificate file used for APK signing.
     :param certificate_password: Certificate's password.
     :param skip_if_exists: Skip the rename if the output filename already exists. Defaults to `False`.
+    :param invalid_char_replacement: String to replace invalid characters with.
     """
 
     if os.path.isfile(item_path):
@@ -306,11 +315,9 @@ def process_path(item_path: str,
                      key_file=key_file,
                      cert_file=cert_file,
                      certificate_password=certificate_password,
-                     skip_if_exists=skip_if_exists)
+                     skip_if_exists=skip_if_exists,
+                     invalid_char_replacement=invalid_char_replacement)
     elif os.path.isdir(item_path):
-        # for root, dirs, files in os.walk(item_path):
-        #    filenames = dirs + files
-        #    for file in filenames:
         for file in os.listdir(item_path):
             file_path = os.path.join(item_path, file)
 
@@ -325,7 +332,8 @@ def process_path(item_path: str,
                          key_file=key_file,
                          cert_file=cert_file,
                          certificate_password=certificate_password,
-                         skip_if_exists=skip_if_exists)
+                         skip_if_exists=skip_if_exists,
+                         invalid_char_replacement=invalid_char_replacement)
 
 
 def process_file(item_path: str,
@@ -339,7 +347,8 @@ def process_file(item_path: str,
                  key_file: str | None = None,
                  cert_file: str | None = None,
                  certificate_password: str | None = None,
-                 skip_if_exists: bool = False) -> None:
+                 skip_if_exists: bool = False,
+                 invalid_char_replacement: str | None = None) -> None:
     if os.path.isdir(item_path):
         return
 
@@ -359,7 +368,8 @@ def process_file(item_path: str,
                                 separator=separator,
                                 file_path=item_path,
                                 errored_apps_list=errored_apps_list,
-                                skip_if_exists=skip_if_exists)
+                                skip_if_exists=skip_if_exists,
+                                invalid_char_replacement=invalid_char_replacement)
 
     if new_file_name is None:
         return
@@ -396,29 +406,105 @@ def write_log(items: list,
 
 def rename_file(file_path: str,
                 pattern: str,
-                apk_info: _ApkInfo,
+                apk_info: ApkInfo,
                 separator: str = "_",
                 errored_apps_list: list = None,
-                skip_if_exists: bool = False) -> str | None:
+                skip_if_exists: bool = False,
+                invalid_char_replacement: str = "_") -> str | None:
     """
-    Rename file and return new filename.
+    Rename the file and return the new filename.
 
     :param file_path: Path to the file to rename.
     :param pattern: The pattern to rename to.
     :param apk_info: Dict containing the information of the APK/APKS file.
     :param separator: The separator to use for the replacing of spaces and invalid characters.
     :param errored_apps_list: List to store errored files.
-    :param skip_if_exists: Whether to skip the renaming if output file exists.
+    :param skip_if_exists: Whether to skip the renaming if the output file exists.
+    :param invalid_char_replacement: String to replace invalid characters with.
 
     :return: The new name of the file, or the same name if `skip_if_exists` is `True` and the new filename already
      exists.
     """
+    drive, root, tail = os.path.splitroot(os.path.normpath(pattern))
 
-    new_name = pattern
+    pattern_pieces = tail.split(os.path.sep)
+    pattern_filename = pattern_pieces[-1]
+    pattern_dirs: list[str] = []
 
-    if "%original_name%" in new_name:
-        new_name = new_name.replace("%original_name%",
-                                    replace_whitespace(get_as_string(apk_info.OriginalName), separator))
+    if len(pattern_pieces) > 1:
+        for pattern_dir in pattern_pieces[:-1]:
+            pattern_dirs.append(pattern_dir)
+
+    new_name = replace_patterns(string_to_replace=pattern_filename,
+                                apk_info=apk_info,
+                                separator=separator,
+                                invalid_char_replacement=invalid_char_replacement)
+
+    new_dirs: list[str] = []
+    for dir_to_process in pattern_dirs:
+        new_dirs.append(replace_patterns(string_to_replace=dir_to_process,
+                                         apk_info=apk_info,
+                                         separator=separator,
+                                         invalid_char_replacement=invalid_char_replacement,
+                                         is_directory=True))
+
+    extension = os.path.splitext(file_path)[1]
+    new_name = drive + root + os.path.join(*new_dirs, new_name)
+
+    if root == "":
+        new_name = os.path.join(os.path.dirname(file_path), new_name)
+
+    if os.path.abspath(file_path) == os.path.abspath(new_name + extension):
+        return file_path
+
+    if skip_if_exists and os.path.exists(new_name + extension):
+        return file_path
+
+    os.makedirs(os.path.dirname(new_name), exist_ok=True)
+
+    new_new_name = new_name
+    i = 1
+    # str(i).zfill(pad_amount)
+    while os.path.exists(new_new_name + extension):
+        new_new_name = new_name + separator + str(i).zfill(2)
+
+        if new_new_name + extension == file_path:
+            # if the new padded name is the same as the original name, then simply return it; we don't need to change
+            # anything
+            return file_path
+
+        i += 1
+
+    try:
+        shutil.move(file_path, new_new_name + extension)
+    except PermissionError as e:
+        print(Fore.RED + "ERROR: Couldn't rename {}. Permission denied.".format(file_path), end="\n\n")
+        print(e, end="\n\n")
+        if errored_apps_list is not None:
+            errored_apps_list.append(file_path)
+        return None
+
+    sig_ext = ".idsig"
+
+    if os.path.exists(file_path + sig_ext):
+        try:
+            shutil.move(file_path + sig_ext, new_new_name + extension + sig_ext)
+        except PermissionError as e:
+            print(Fore.RED + "ERROR: Couldn't rename {}. Permission denied.".format(file_path + sig_ext), end="\n\n")
+            print(e, end="\n\n")
+            if errored_apps_list is not None:
+                errored_apps_list.append(file_path + sig_ext)
+            return None
+
+    return new_new_name + extension
+
+
+def replace_patterns(string_to_replace: str,
+                     apk_info: ApkInfo,
+                     invalid_char_replacement: str,
+                     separator: str = "_",
+                     is_directory: bool = False) -> str:
+    new_name = string_to_replace
 
     if "%label%" in new_name:
         new_name = new_name.replace("%label%", replace_whitespace(get_as_string(apk_info.Label), separator))
@@ -516,53 +602,21 @@ def rename_file(file_path: str,
         new_name = new_name.replace("%locales%",
                                     join_values(apk_info.Locales).replace(" ", separator))
 
-    new_name = sanitize_name(name=new_name, separator=separator)
+    if is_directory:
+        sanitize_fn = sanitize_dirname
+    else:
+        sanitize_fn = sanitize_name
 
-    new_name_ext = os.path.splitext(file_path)[1]
+    new_name = sanitize_fn(name=new_name, invalid_char_replacement=invalid_char_replacement)
 
-    old_name = os.path.splitext(os.path.basename(file_path))[0]
-    if new_name == old_name:
-        return file_path
+    if "%original_name%" in new_name:
+        new_name = new_name.replace("%original_name%", apk_info.OriginalName)
 
-    new_name = os.path.join(os.path.split(file_path)[0], new_name)
-
-    new_new_name = new_name
-    i = 1
-    # str(i).zfill(pad_amount)
-
-    if skip_if_exists and os.path.exists(new_name + new_name_ext):
-        return file_path
-
-    while os.path.exists(new_new_name + new_name_ext):
-        new_new_name = new_name + separator + str(i).zfill(2)
-        i += 1
-
-    try:
-        os.rename(file_path, new_new_name + new_name_ext)
-    except PermissionError as e:
-        print(Fore.RED + "ERROR: Couldn't rename {}. Permission denied.".format(file_path), end="\n\n")
-        print(e, end="\n\n")
-        if errored_apps_list is not None:
-            errored_apps_list.append(file_path)
-        return None
-
-    sig_ext = ".idsig"
-
-    if os.path.exists(file_path + sig_ext):
-        try:
-            os.rename(file_path + sig_ext, new_new_name + new_name_ext + sig_ext)
-        except PermissionError as e:
-            print(Fore.RED + "ERROR: Couldn't rename {}. Permission denied.".format(file_path + sig_ext), end="\n\n")
-            print(e, end="\n\n")
-            if errored_apps_list is not None:
-                errored_apps_list.append(file_path + sig_ext)
-            return None
-
-    return new_new_name + new_name_ext
+    return new_name
 
 
 def sanitize_name(name: str,
-                  separator: str) -> str:
+                  invalid_char_replacement: str) -> str:
 
     illegal_characters = ("\\",
                           "/",
@@ -577,15 +631,31 @@ def sanitize_name(name: str,
                           "\n")
 
     for character in illegal_characters:
-        name = name.replace(character, separator)
+        name = name.replace(character, invalid_char_replacement)
 
     regex_pattern = r"(\(\)|{}|\[\])"
 
-    name = re.sub(separator + regex_pattern, "", name)
-    name = re.sub(regex_pattern + separator, "", name)
+    name = re.sub(invalid_char_replacement + regex_pattern, "", name)
+    name = re.sub(regex_pattern + invalid_char_replacement, "", name)
     name = re.sub(regex_pattern, "", name)
 
     return name
+
+
+def sanitize_dirname(name: str,
+                     invalid_char_replacement: str) -> str:
+    new_name = sanitize_name(name=name,
+                             invalid_char_replacement=invalid_char_replacement)
+    new_name = new_name.rstrip()
+
+    add_chars = 0
+    while new_name.endswith("."):
+        new_name = new_name[:-1]
+        add_chars += 1
+
+    new_name += invalid_char_replacement * add_chars
+
+    return new_name
 
 
 def join_values(list_values: list[str]) -> str:
@@ -1182,7 +1252,7 @@ def rename_densities(density_list: list[str],
         if is_density_number(density):
             densities.add(DENSITIES_MAPPING[density])
         else:
-            logging.warning(f"Unknown density: {density}")
+            print(Fore.YELLOW + f"\tWARNING: Unknown density: {density}", end="\n\n")
 
     if any_density:
         densities.add("anydpi")
@@ -1206,7 +1276,7 @@ def get_abis(value: str) -> list[ABI]:
         if is_abi(item):
             abis.add(item)
         else:
-            logging.warning(f"Unknown ABI: {item}")
+            print(Fore.YELLOW + f"\tWARNING: Unknown ABI: {item}", end="\n\n")
 
     return list(abis)
 
@@ -1220,7 +1290,7 @@ def get_supported_screens(value: str) -> list[AndroidScreenType]:
         if is_screen_type(item):
             screen_types.add(item)
         else:
-            logging.warning(f"Unknown screen: {item}")
+            print(Fore.YELLOW + f"\tWARNING: Unknown screen: {item}", end="\n\n")
 
     return list(screen_types)
 

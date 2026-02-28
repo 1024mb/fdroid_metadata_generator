@@ -147,6 +147,21 @@ class _ApkInfo(BaseModel, validate_assignment=True):
         else:
             return value
 
+    @field_validator("SupportedABIs", mode="after")
+    @classmethod
+    def order_abis(cls,
+                   value: list[ABI]) -> list[ABI]:
+        ordered_abis: list[ABI] = []
+        all_abis: list[ABI | None] = [None, None, None, None, None, None, None]
+        for abi in value:
+            all_abis[ABIS_ORDER[abi]] = abi
+
+        for abi in all_abis:
+            if abi is not None:
+                ordered_abis.append(abi)
+
+        return ordered_abis
+
 
 class ApkInfo(_ApkInfo):
     OriginalName: str
@@ -179,6 +194,16 @@ DENSITIES_MAPPING: dict[AndroidDensityNumber, AndroidDensityName] = {
     65534: "anydpi",
     65535: "nodpi",
     -1: "undefineddpi"
+}
+
+ABIS_ORDER: dict[ABI, int] = {
+    "armeabi": 0,
+    "armeabi-v7a": 1,
+    "arm64-v8a": 2,
+    "x86": 3,
+    "x86_64": 4,
+    "mips": 5,
+    "mips64": 6
 }
 
 
