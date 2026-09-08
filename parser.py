@@ -30,7 +30,7 @@ from common import (AppData,
                     get_program_dir,
                     is_none_or_empty)
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 not_found_packages: list[str] = []
 authorname_not_found_packages: list[str] = []
