@@ -10,7 +10,7 @@ import shutil
 import sys
 import tempfile
 from datetime import datetime
-from typing import Literal, Any
+from typing import Any, Literal
 
 import pydantic
 import requests
@@ -21,13 +21,13 @@ from requests import HTTPError
 
 import recompiler
 import renamer
-from common import (get_program_dir,
-                    AppData,
+from common import (AppData,
+                    ExtensionUnknown,
                     RegexPatterns,
                     SupportedStore,
-                    get_page_content,
                     download_file,
-                    ExtensionUnknown,
+                    get_page_content,
+                    get_program_dir,
                     is_none_or_empty)
 
 __version__ = "1.1.0"
@@ -211,13 +211,13 @@ def main():
     else:
         cookie_path = os.path.abspath(args.cookie_path[0])
 
-    data_file: str | None
+    data_file: str
     if args.data_file is None:
         data_file = os.path.join(get_program_dir(), "data.json")
     else:
         data_file = os.path.abspath(args.data_file[0])
 
-    log_path: str | None
+    log_path: str
     if args.log_path is None:
         log_path = get_program_dir()
     else:
@@ -272,8 +272,7 @@ def main():
         elif not os.path.isdir(metadata_dir):
             print(Fore.RED + "ERROR: Invalid metadata directory, supplied path is not a directory")
             sys.exit(1)
-
-    if repo_dir is not None:
+    elif repo_dir is not None:
         provided_dir = "repo"
         if os.path.split(repo_dir)[1] != "repo":
             print(Fore.RED + "ERROR: Repo directory path doesn't look like a F-Droid repository directory, aborting...")
@@ -284,8 +283,7 @@ def main():
         elif not os.path.isdir(repo_dir):
             print(Fore.RED + "ERROR: Invalid repo directory, supplied path is not a directory")
             sys.exit(1)
-
-    if unsigned_dir is not None:
+    elif unsigned_dir is not None:
         provided_dir = "unsigned"
         if os.path.split(unsigned_dir)[1] != "unsigned":
             print(Fore.RED + "ERROR: Unsigned directory path doesn't look like a F-Droid unsigned directory, "
@@ -297,6 +295,8 @@ def main():
         if not os.path.isdir(unsigned_dir):
             print(Fore.RED + "ERROR: Invalid unsigned directory, supplied path is not a directory")
             sys.exit(1)
+    else:
+        raise ValueError("No valid directory provided for processing.")
 
     if not os.path.isfile(data_file):
         print(Fore.RED + "ERROR: Invalid data file.")
@@ -428,6 +428,8 @@ def main():
         os.makedirs(metadata_dir, exist_ok=True)
         os.makedirs(repo_dir, exist_ok=True)
         dir_to_process = unsigned_dir
+    else:
+        raise ValueError("No valid directory provided for processing.")
 
     if convert_apks:
         print(Fore.GREEN + "Starting APKS conversion...", end="\n\n")
@@ -605,8 +607,8 @@ def get_new_packagename(replacement_file: str | None,
 def convert_apks_to_apk(apks_dir: str,
                         apk_editor_path: str,
                         sign_apk: bool,
-                        key_file: str,
-                        cert_file: str,
+                        key_file: str | None,
+                        cert_file: str | None,
                         password: str | None,
                         build_tools_path: str | None) -> None:
     proc = False
@@ -1871,14 +1873,14 @@ def write_not_found_log(items: list[str],
     try:
         log_stream = open(file_name, "w")
     except IOError as e:
-        print(Fore.RED + e)
+        print(Fore.RED + str(e))
         return
 
     for item in items:
         try:
             log_stream.write(item + "\n")
         except IOError as e:
-            print(Fore.RED + e)
+            print(Fore.RED + str(e))
             return
 
 
