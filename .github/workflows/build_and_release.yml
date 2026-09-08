@@ -58,6 +58,7 @@ jobs:
           tag: latest
 
       - name: Compress Executable
+        shell: bash
         run: |
           7z a -tzip \
             ".\archives\${{ steps.rls_metadata.outputs.zip_name }}" \
