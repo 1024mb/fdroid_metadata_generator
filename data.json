@@ -312,6 +312,31 @@
       "ja",
       "pl",
       "zh"
+    ],
+    "Apkpure_Store": [
+      "ar",
+      "bn",
+      "de",
+      "en",
+      "es",
+      "fa",
+      "fr",
+      "hi",
+      "id",
+      "it",
+      "ja",
+      "ko",
+      "ms",
+      "nl",
+      "pl",
+      "pt",
+      "ru",
+      "th",
+      "tr",
+      "ur",
+      "vi",
+      "zh-Hans",
+      "zh-Hant"
     ]
   },
   "Icon_Relations": {
@@ -395,12 +420,31 @@
       "ads_pattern": "",
       "inapp_purchases_pattern": "",
       "tracking_pattern": ""
+    },
+    "Apkpure_Store": {
+      "author_name_pattern": "<a\\s+class=\"developer\\s+one-line\"\\s*[^>]*>(.+?)</a>",
+      "author_email_pattern": "",
+      "name_pattern": "<span\\s+class=\"app-name\\s+one-line\"[^>]*><h1>(.+?)</h1>",
+      "website_pattern": "",
+      "category_pattern": "<a\\s+class=\"item\"\\s+href=\"https://apkpure.com\"\\s+title=\"Home\">Home</a><a\\s+[^>]+>[^<]*</a><a\\s+class=\"item\"\\s+href=\"[^\"]*\"\\s+title=\"(.+?)\">.+?</a>",
+      "summary_pattern": "<h3\\s+class=\"app-short-desc\">(.+?)</h3>",
+      "summary_pattern_alt": "",
+      "description_pattern": "<div\\s+class=\"description\">(.+?)</div></div><div\\s+class=\"show-more-mask\">",
+      "screenshot_pattern": "<a\\s+class=\"screenshots-item\\s+dt-screenshots-img\"\\s+href=\"(.+?\\?fakeurl=1&amp;type=[A-Za-z.]+)\"",
+      "screenshot_pattern_alt": "",
+      "icon_pattern": "<span\\s+class=\"app-icon\"[^>]*><img\\s+.+?src=\"([^?]+\\?w=)[^\"]+\"",
+      "icon_pattern_alt": "",
+      "gitlab_repo_id_pattern": "",
+      "ads_pattern": "",
+      "inapp_purchases_pattern": "",
+      "tracking_pattern": ""
     }
   },
   "Sport_Category_Pattern": {
     "Play_Store": "href=\"/store/apps/category/GAME_SPORTS\"",
     "Amazon_Store": "",
-    "Apkcombo_Store": "href=\"/category/game-sports/\""
+    "Apkcombo_Store": "href=\"/category/game-sports/\"",
+    "Apkpure_Store": "href=\"https://apkpure.com/game_sports\""
   },
   "User_Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0",
   "Page_Error_Pattern": {
@@ -411,6 +455,9 @@
       "Amazon_Store": [],
       "Apkcombo_Store": [
         "We're sorry, the app was not found on APKCombo."
+      ],
+      "Apkpure_Store": [
+        "Oopps! The page can't be found."
       ]
     },
     "Robot": {
@@ -418,7 +465,8 @@
       "Amazon_Store": [
         "Sorry, we just need to make sure you're not a robot"
       ],
-      "Apkcombo_Store": []
+      "Apkcombo_Store": [],
+      "Apkpure_Store": []
     },
     "Redirection": {
       "Play_Store": [],
@@ -426,7 +474,8 @@
         "https://www.amazon.com/gp/browse.html",
         "https://www.amazon.com/hz/mas/pagenotfound"
       ],
-      "Apkcombo_Store": []
+      "Apkcombo_Store": [],
+      "Apkpure_Store": []
     }
   }
 }

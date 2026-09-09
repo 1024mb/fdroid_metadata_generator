@@ -4,7 +4,7 @@ import re
 import sys
 from http.cookiejar import MozillaCookieJar
 from time import sleep
-from typing import Literal, Any, TypeGuard
+from typing import Any, Literal, TypeGuard
 
 import requests
 from colorama import Fore
@@ -15,6 +15,7 @@ from requests import HTTPError
 class Locales(BaseModel):
     Play_Store: list[str]
     Apkcombo_Store: list[str]
+    Apkpure_Store: list[str]
 
 
 class RegexPatterns(BaseModel):
@@ -41,24 +42,28 @@ class StoreRegexPatterns(BaseModel):
     Play_Store: RegexPatterns
     Amazon_Store: RegexPatterns
     Apkcombo_Store: RegexPatterns
+    Apkpure_Store: RegexPatterns
 
 
 class SportCategoryPattern(BaseModel):
     Play_Store: str
     Amazon_Store: str
     Apkcombo_Store: str
+    Apkpure_Store: str
 
 
 class AppStoreRegexPatterns(BaseModel):
     Play_Store: list[re.Pattern[str]]
     Amazon_Store: list[re.Pattern[str]]
     Apkcombo_Store: list[re.Pattern[str]]
+    Apkpure_Store: list[re.Pattern[str]]
 
 
 class AppStoreStringPatterns(BaseModel):
     Play_Store: list[str]
     Amazon_Store: list[str]
     Apkcombo_Store: list[str]
+    Apkpure_Store: list[str]
 
 
 class PageErrorPattern(BaseModel):
@@ -180,7 +185,7 @@ class ApkInfo(_ApkInfo):
     Locales: list[str] = Field(default_factory=list)
 
 
-SupportedStore = Literal["Play_Store", "Amazon_Store", "Apkcombo_Store"]
+SupportedStore = Literal["Play_Store", "Amazon_Store", "Apkcombo_Store", "Apkpure_Store"]
 FailType = Literal["Not_Found", "Robot", "Redirection", ""]
 
 DENSITIES_MAPPING: dict[AndroidDensityNumber, AndroidDensityName] = {
