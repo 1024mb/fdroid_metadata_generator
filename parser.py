@@ -833,6 +833,15 @@ def retrieve_info(package_list: dict[str, str],
                 break
             resp_list = []
 
+            print(Fore.GREEN + "\tDownloading Apkpure page...", end="\n\n")
+            if get_apkpure_page(resp_list=resp_list,
+                                language=lang,
+                                package_name=new_package,
+                                app_data=app_data):
+                store_name = "Apkpure_Store"
+                break
+            resp_list = []
+
             not_found_packages.append(package)
 
             get_version(package_content=package_content,
@@ -1649,26 +1658,7 @@ def get_icon(resp_int: str,
             return
 
     if icon_base_url is not None:
-        if store_name == "Play_Store" or store_name == "Apkcombo_Store":
-            for dirname in app_data.Icon_Relations.keys():
-                icon_path = os.path.join(repo_dir, dirname, filename)
-
-                if os.path.exists(icon_path) and not force_icons:
-                    continue
-
-                url = icon_base_url + app_data.Icon_Relations[dirname]
-
-                try:
-                    download_file(url=url, filepath_without_extension=icon_path)
-                except HTTPError as e:
-                    print(Fore.YELLOW + f"\tCouldn't download icon for {dirname}. "
-                                        f"HTTP error: {e.response.status_code}.")
-                except PermissionError:
-                    print(Fore.RED + f"\tCouldn't write icon file for {dirname}. Permission denied.")
-                    return
-                except ExtensionUnknown as e:
-                    print(Fore.YELLOW + f"\tError downloading icon for {dirname}. {e}.")
-        elif store_name == "Amazon_Store":
+        if store_name == "Amazon_Store":
             try:
                 main_icon_path = download_file(url=icon_base_url,
                                                filepath_without_extension=os.path.join(tempfile.mkdtemp(), filename))
@@ -1693,6 +1683,28 @@ def get_icon(resp_int: str,
                     resized_img = orig_img.resize((int(app_data.Icon_Relations[dirname]),
                                                    int(app_data.Icon_Relations[dirname])))
                     resized_img.save(icon_path)
+        else:
+            for dirname in app_data.Icon_Relations.keys():
+                icon_path = os.path.join(repo_dir, dirname, filename)
+
+                if os.path.exists(icon_path) and not force_icons:
+                    continue
+
+                url = icon_base_url + app_data.Icon_Relations[dirname]
+
+                if store_name == "Apkpure_Store":
+                    url += "&fakeurl=1"
+
+                try:
+                    download_file(url=url, filepath_without_extension=icon_path)
+                except HTTPError as e:
+                    print(Fore.YELLOW + f"\tCouldn't download icon for {dirname}. "
+                                        f"HTTP error: {e.response.status_code}.")
+                except PermissionError:
+                    print(Fore.RED + f"\tCouldn't write icon file for {dirname}. Permission denied.")
+                    return
+                except ExtensionUnknown as e:
+                    print(Fore.YELLOW + f"\tError downloading icon for {dirname}. {e}.")
     elif icon_base_url_alt is not None:
         if store_name == "Play_Store":
             for dirname in app_data.Icon_Relations.keys():
@@ -1976,6 +1988,71 @@ def sanitize_lang_apkcombo(language: str,
 
     if language not in app_data.Locales.Apkcombo_Store:
         print(Fore.YELLOW + "\tThe language {} is not available in Apkcombo, English will be used instead.".
+              format(language))
+        language = "en"
+
+    return language
+
+
+def get_apkpure_page(resp_list: list[str],
+                     language: str,
+                     package_name: str,
+                     app_data: AppData) -> bool:
+    original_language = language
+    language = sanitize_lang_apkpure(language=language, app_data=app_data)
+
+    url = f"https://apkpure.com/{language}/xxxx/{package_name}"
+    url_international = f"https://apkpure.com/xxxx/{package_name}"
+
+    response = get_page_content(url=url,
+                                app_data=app_data,
+                                package_name=package_name,
+                                store_name="Apkpure_Store",
+                                language=language,
+                                alt_language=original_language if original_language != language else "")
+
+    if response is None:
+        return False
+
+    if language == "en":
+        response_international = response
+    else:
+        response_international = get_page_content(url=url_international,
+                                                  app_data=app_data,
+                                                  package_name=package_name,
+                                                  store_name="Apkpure_Store",
+                                                  language="en-US",
+                                                  alt_language="en")
+
+    if response_international is None:
+        return False
+
+    resp_list.append(response)
+    resp_list.append(response_international)
+
+    return True
+
+
+def sanitize_lang_apkpure(language: str,
+                          app_data: AppData) -> str:
+    match language:
+        case "in":
+            language = "id"
+        case "zh-CN":
+            language = "zh-Hans"
+        case "zh-TW":
+            language = "zh-Hant"
+        case "pt-BR" | "pt-PT":
+            language = "pt"
+        case "en-GB" | "en-US":
+            language = "en"
+        case "fr-CA" | "fr-FR":
+            language = "fr"
+        case "es-419" | "es-ES":
+            language = "es"
+
+    if language not in app_data.Locales.Apkpure_Store:
+        print(Fore.YELLOW + "\tThe language {} is not available in Apkpure, English will be used instead.".
               format(language))
         language = "en"
 
