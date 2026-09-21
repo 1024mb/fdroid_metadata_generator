@@ -17,17 +17,17 @@ from datetime import datetime
 
 from colorama import Fore, init
 
-from common import (get_program_dir,
-                    _ApkInfo,
-                    replace_whitespace,
+from common import (ABI,
+                    AndroidDensityName,
+                    AndroidScreenType,
                     ApkInfo,
                     DENSITIES_MAPPING,
-                    ABI,
+                    _ApkInfo,
+                    get_program_dir,
                     is_abi,
-                    AndroidDensityName,
                     is_density_number,
-                    AndroidScreenType,
-                    is_screen_type)
+                    is_screen_type,
+                    replace_whitespace)
 
 APK_EXTENSION = ".apk"
 APKS_EXTENSION = ".apks"
@@ -408,9 +408,9 @@ def rename_file(file_path: str,
                 pattern: str,
                 apk_info: ApkInfo,
                 separator: str = "_",
-                errored_apps_list: list = None,
+                errored_apps_list: list | None = None,
                 skip_if_exists: bool = False,
-                invalid_char_replacement: str = "_") -> str | None:
+                invalid_char_replacement: str | None = "_") -> str | None:
     """
     Rename the file and return the new filename.
 
@@ -425,6 +425,9 @@ def rename_file(file_path: str,
     :return: The new name of the file, or the same name if `skip_if_exists` is `True` and the new filename already
      exists.
     """
+    if invalid_char_replacement is None:
+        invalid_char_replacement = "_"
+
     drive, root, tail = os.path.splitroot(os.path.normpath(pattern))
 
     pattern_pieces = tail.split(os.path.sep)
@@ -699,8 +702,8 @@ def translate_sdk(sdk: str | int,
 
 
 def get_info(app_file_path: str,
-             build_tools_path: str = None,
-             errored_apps_list: list = None) -> ApkInfo | None:
+             build_tools_path: str | None = None,
+             errored_apps_list: list | None = None) -> ApkInfo | None:
     """
     | Get information from an APK or APKS file.
     |
@@ -785,8 +788,8 @@ def badging(app_file_path: str,
             is_apks: bool,
             apks_content: list[str],
             temp_path: str,
-            build_tools_path: str = None,
-            errored_apps_list: list = None) -> str | None:
+            build_tools_path: str | None = None,
+            errored_apps_list: list | None = None) -> str | None:
 
     output = ""
 
@@ -958,10 +961,10 @@ def pre_process_apks(apks_file: str,
 def convert_to_apk(apks_file: str,
                    apk_editor_path: str,
                    sign_apk: bool = False,
-                   key_file: str = None,
-                   cert_file: str = None,
-                   certificate_password: str = None,
-                   build_tools_path: str = None) -> bool:
+                   key_file: str | None = None,
+                   cert_file: str | None = None,
+                   certificate_password: str | None = None,
+                   build_tools_path: str | None = None) -> bool:
     """
     Convert an APKS file to APK, optionally signing it.
 
@@ -971,7 +974,8 @@ def convert_to_apk(apks_file: str,
     :param key_file: Path to the key file used to sign the resulting APK file.
     :param cert_file: Path to the certificate file used to sign the resulting APK file.
     :param certificate_password: Certificate's password.
-    :param build_tools_path: Path to build-tools directory of the Android SDK. Only *apksigner* is used from this path,
+    :param build_tools_path: Path to the build-tools directory of the Android SDK. Only *apksigner* is used from this
+    path,
         if not specified **PATH** is used.
 
     :return: *True* if the conversion was successful and *False* otherwise.
@@ -1060,8 +1064,8 @@ def sign_apk_file(key_file: str,
                   cert_file: str,
                   apk_path_unsigned: str,
                   apk_path_signed: str,
-                  certificate_password: str = None,
-                  build_tools_path: str = None) -> bool:
+                  certificate_password: str | None = None,
+                  build_tools_path: str | None = None) -> bool:
     """
     Sign APK file with the provided certificate.
 
@@ -1145,7 +1149,10 @@ def restore_dates(old_app_stats: os.stat_result,
 
     if platform.system() == "Windows" and setctime is not None:
         try:
-            setctime(apk_file, old_app_stats.st_ctime)
+            if sys.version_info >= (3, 12):
+                setctime(apk_file, old_app_stats.st_birthtime)
+            else:
+                setctime(apk_file, old_app_stats.st_ctime)
         except PermissionError as e:
             print(Fore.YELLOW + "\tWARNING: Couldn't restore old creation date. Permission denied.", end="\n\n")
             print(e, end="\n\n")
@@ -1223,7 +1230,7 @@ def get_bool_value(value: str) -> bool:
 
 
 def get_list_value(value: str,
-                   excluded_values: list[str] = None) -> list[str]:
+                   excluded_values: list[str] | None = None) -> list[str]:
     processed_value = get_str_value(value)
 
     if processed_value is None:

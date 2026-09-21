@@ -178,7 +178,7 @@ class ApkInfo(_ApkInfo):
     MaximumSDK: int | None
     TargetSDK: int | None
     CompileSDK: int | None
-    SupportedScreens: list[str] = Field(default_factory=list)
+    SupportedScreens: list[AndroidScreenType] = Field(default_factory=list)
     SupportedABIs: list[ABI] = Field(default_factory=list)
     SupportedDevices: list[AndroidDeviceType] = Field(default_factory=lambda: list(("Android",)))
     Densities: list[AndroidDensityName] = Field(default_factory=list)
@@ -215,6 +215,7 @@ ABIS_ORDER: dict[ABI, int] = {
 def get_program_dir() -> str:
     try:
         # noinspection PyUnresolvedReferences
+        # pyrefly: ignore [unknown-name]
         return os.path.abspath(__compiled__.containing_dir)
     except NameError:
         return os.path.abspath(os.path.dirname(sys.argv[0]))
@@ -247,8 +248,10 @@ def get_page_content(url: str,
     if cookie_file is not None:
         cookie_jar = MozillaCookieJar(cookie_file)
         # noinspection PyTypeChecker
+        # pyrefly: ignore [bad-assignment]
         session.cookies = cookie_jar
         # noinspection PyUnresolvedReferences
+        # pyrefly: ignore [missing-attribute]
         session.cookies.load()
 
     for _ in range(1, 3):
@@ -306,7 +309,7 @@ def download_file(url: str,
     with requests.get(url, stream=True) as resp_stream:
         resp_stream.raise_for_status()
 
-        extension = mimetypes.guess_extension(resp_stream.headers.get("Content-Type"))
+        extension = mimetypes.guess_extension(resp_stream.headers.get("Content-Type", ""))
 
         if extension is None:
             raise ExtensionUnknown(f"Couldn't retrieve the correct extension for '{filepath_without_extension}'.")
@@ -320,7 +323,7 @@ def download_file(url: str,
 
 def is_none_or_empty(data: dict,
                      key: Any,
-                     forbidden_values: list[str] = None) -> bool:
+                     forbidden_values: list[str] | None = None) -> bool:
     value = data.get(key)
 
     if value is None:
