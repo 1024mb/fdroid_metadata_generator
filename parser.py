@@ -1373,18 +1373,22 @@ def get_website(package_content: dict,
     website = ""
 
     try:
-        website = (website_pattern.search(resp).group(1).strip())
-    except (IndexError, AttributeError):
+        website = website_pattern.search(resp).group(1).strip()
+
+        if website == "about:invalid#navigation":
+            website = ""
+
+        if package_content.get("WebSite", "") == "" or package_content.get("WebSite") is None or force_metadata:
+            if website == "":
+                raise ValueError("Extracted website is empty")
+
+            # noinspection HttpUrlsUsage
+            package_content["WebSite"] = website.replace("http://", "https://")
+
+
+    except (IndexError, AttributeError, ValueError):
         print(Fore.YELLOW + "\tWARNING: Couldn't get the app website.", end="\n\n")
         website_not_found_packages.append(package + " [" + store_name + "]")
-
-    if website == "about:invalid#navigation":
-        website = ""
-
-    if website != "" and (package_content.get("WebSite", "") == "" or package_content.get("WebSite") is None
-                          or force_metadata):
-        # noinspection HttpUrlsUsage
-        package_content["WebSite"] = website.replace("http://", "https://")
 
     return website
 
@@ -1397,8 +1401,14 @@ def get_author_name(package_content: dict,
                     store_name: SupportedStore) -> None:
     try:
         if package_content.get("AuthorName", "") == "" or package_content.get("AuthorName") is None or force_metadata:
-            package_content["AuthorName"] = html.unescape(author_name_pattern.search(resp).group(1)).strip()
-    except (IndexError, AttributeError):
+            author_name = html.unescape(author_name_pattern.search(resp).group(1)).strip()
+
+            if author_name == "":
+                raise ValueError("Extracted author name is empty")
+
+            package_content["AuthorName"] = author_name
+
+    except (IndexError, AttributeError, ValueError):
         print(Fore.YELLOW + "\tWARNING: Couldn't get the Author name.", end="\n\n")
         authorname_not_found_packages.append(package + " [" + store_name + "]")
 
@@ -1449,6 +1459,9 @@ def get_summary(resp: str,
     try:
         summary = html.unescape(pattern.search(resp).group(1)).strip()
         summary = re.sub(r"(<[^>]+>)", "", summary).strip()
+
+        if summary == "":
+            return False
 
         while len(summary) > 80:
             try:
