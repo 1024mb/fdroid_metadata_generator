@@ -343,7 +343,7 @@ def main():
         data_file_stream.close()
 
     try:
-        app_data = AppData.model_validate(data_file_content, strict=True)
+        app_data = AppData.model_validate(data_file_content)
     except pydantic.ValidationError as e:
         print(Fore.RED + "ERROR: Error validating data file.", end="\n\n")
         print(e)
@@ -919,16 +919,22 @@ def retrieve_info(package_list: dict[str, str],
             print(Fore.GREEN + "\tDownloading icons...", end="\n\n")
             # Function to download icons needs to check force_icons because there might be cases where one of the icons
             # is missing, with screenshots as long as there is at least one file we assume it's complete.
+            icons_all_success = True
             for version_tuple in package_and_version[new_package]:
-                get_icon(resp_int=resp_int,
-                         package=package,
-                         new_package=new_package,
-                         version_code=version_tuple[0],
-                         repo_dir=repo_dir,
-                         force_icons=force_icons,
-                         app_data=app_data,
-                         store_name=store_name)
-            print(Fore.GREEN + f"\tFinished downloading icons for {package}.", end="\n\n")
+                if not get_icon(resp_int=resp_int,
+                                package=package,
+                                new_package=new_package,
+                                version_code=version_tuple[0],
+                                repo_dir=repo_dir,
+                                force_icons=force_icons,
+                                app_data=app_data,
+                                store_name=store_name):
+                    icons_all_success = False
+
+            if icons_all_success:
+                print(Fore.GREEN + f"\tFinished downloading icons for {package}.", end="\n\n")
+            else:
+                print(Fore.RED + f"\tFailed to download icons for {package}.", end="\n\n")
         else:
             print(Fore.BLUE + f"\tAll icon files for {package} already exist, skipping...", end="\n\n")
 
@@ -938,13 +944,20 @@ def retrieve_info(package_list: dict[str, str],
                                                      repo_dir=repo_dir)
 
             if force_screenshots or not screenshots_exist:
-                get_screenshots(resp=resp,
-                                repo_dir=repo_dir,
-                                package=package,
-                                new_package=new_package,
-                                app_data=app_data,
-                                screenshots_exist=screenshots_exist,
-                                store_name=store_name)
+                screenshots_all_success = True
+                if not get_screenshots(resp=resp,
+                                       repo_dir=repo_dir,
+                                       package=package,
+                                       new_package=new_package,
+                                       app_data=app_data,
+                                       screenshots_exist=screenshots_exist,
+                                       store_name=store_name):
+                    screenshots_all_success = False
+
+                if screenshots_all_success:
+                    print(Fore.GREEN + "\tFinished downloading screenshots for {}.".format(package), end="\n\n")
+                else:
+                    print(Fore.RED + "\tScreenshots for {} couldn't be downloaded.".format(package), end="\n\n")
             else:
                 print(Fore.BLUE + "\tScreenshots for {} already exists, skipping...".format(package), end="\n\n")
 
@@ -1497,7 +1510,7 @@ def get_screenshots(resp: str,
                     new_package: str,
                     app_data: AppData,
                     screenshots_exist: bool,
-                    store_name: SupportedStore) -> None:
+                    store_name: SupportedStore) -> bool:
     # Locale directory must be en-US and not the real locale because that's what F-Droid
     # defaults to and this program does not do multi-lang download.
     screenshots_path = os.path.join(repo_dir, package, "en-US", "phoneScreenshots")
@@ -1505,39 +1518,35 @@ def get_screenshots(resp: str,
 
     if os.path.exists(screenshots_path) and ".noscreenshots" in os.listdir(screenshots_path):
         print(Fore.BLUE + "\tSkipping screenshots download for {}.".format(package), end="\n\n")
-        return
-
+        return True
     store_patterns: RegexPatterns = getattr(app_data.Regex_Patterns, store_name)
 
-    if store_patterns.screenshot_pattern == "":
-        return
-    else:
-        screenshot_pattern = store_patterns.screenshot_pattern
+    if len(store_patterns.screenshot_pattern) == 0:
+        print(Fore.YELLOW + "\tNo screenshot pattern found for {}.".format(package), end="\n\n")
+        return False
 
     print(Fore.GREEN + "\tDownloading screenshots for {}...".format(package), end="\n\n")
 
-    img_url_list: list[str]
-    if store_name == "Apkcombo_Store":
-        if store_patterns.screenshot_pattern_alt == "":
-            return
+    img_url_list: list[str] = []
+    add_to_url = ""
+
+    for pattern_tuple in store_patterns.screenshot_pattern:
+        if not isinstance(pattern_tuple[0], re.Pattern):
+            if pattern_tuple[0] == "":
+                continue
+            else:
+                raise ValueError(f"Invalid screenshot pattern: {pattern_tuple[0]}")
         else:
-            screenshot_pattern_alt = store_patterns.screenshot_pattern_alt
+            img_url_list = pattern_tuple[0].findall(resp)
 
-        try:
-            scrn_div = screenshot_pattern.search(resp).group(1)
-        except (AttributeError, IndexError):
-            print(Fore.YELLOW + "\tCouldn't get screenshots URLs for {}".format(new_package), end="\n\n")
-            screenshots_not_found_packages.append(package + " [" + store_name + "]")
-            return
-
-        img_url_list = screenshot_pattern_alt.findall(scrn_div)
-    else:
-        img_url_list = screenshot_pattern.findall(resp)
+            if len(img_url_list) > 0:
+                add_to_url = pattern_tuple[1]
+                break
 
     if len(img_url_list) == 0:
         print(Fore.YELLOW + "\tCouldn't get screenshots URLs for {}".format(new_package), end="\n\n")
         screenshots_not_found_packages.append(package + " [" + store_name + "]")
-        return
+        return False
 
     if screenshots_exist:
         try:
@@ -1547,14 +1556,14 @@ def get_screenshots(resp: str,
         except PermissionError as e:
             print(Fore.RED + "\tCouldn't remove the old backup directory. Permission denied.", end="\n\n")
             print(e, end="\n\n")
-            return
+            return False
 
         try:
             os.makedirs(backup_path, exist_ok=True)
         except PermissionError as e:
             print(Fore.RED + "\tCouldn't create backup directory for screenshots. Permission denied.", end="\n\n")
             print(e, end="\n\n")
-            return
+            return False
 
         try:
             os.rename(screenshots_path, backup_path)
@@ -1562,23 +1571,21 @@ def get_screenshots(resp: str,
             pass
         except PermissionError:
             print(Fore.RED + "\tCouldn't move the screenshots to the backup directory. Permission denied.", end="\n\n")
-            return
+            return False
 
     try:
         os.makedirs(screenshots_path, exist_ok=True)
     except PermissionError:
         print(Fore.RED + "\tError creating the directory where the screenshots should be saved. Permission denied.",
               end="\n\n")
-        return
+        return False
 
     pad_amount = len(str(len(img_url_list)))
 
+    all_success = True
     i = 0
     for img_url in img_url_list:
-        if store_name == "Play_Store" or store_name == "Apkcombo_Store":
-            url = img_url + "=w9999"
-        else:
-            url = img_url
+        url = img_url + add_to_url
 
         ss_path = os.path.join(screenshots_path, str(i).zfill(pad_amount))
 
@@ -1586,14 +1593,19 @@ def get_screenshots(resp: str,
             download_file(url=url, filepath_without_extension=ss_path)
             i += 1
         except HTTPError as e:
-            print(Fore.YELLOW + f"\tCouldn't download screenshot: {img_url}. HTTP error: {e.response.status_code}")
+            print(Fore.YELLOW + f"\tCouldn't download screenshot: {url}. HTTP error: {e.response.status_code}")
+            all_success = False
         except PermissionError:
             print(Fore.RED + "\tCouldn't write screenshot file. Permission denied.")
-            return
+            return False
         except ExtensionUnknown as e:
-            print(Fore.YELLOW + f"\tError downloading screenshot: {img_url}. {e}.")
+            print(Fore.YELLOW + f"\tError downloading screenshot: {url}. {e}.")
+            all_success = False
 
-    print(Fore.GREEN + "\tFinished downloading screenshots for {}.".format(package), end="\n\n")
+    if not all_success:
+        screenshots_not_found_packages.append(package + " [" + store_name + "]")
+
+    return all_success
 
 
 def extract_icon_url(response_content: str,
@@ -1616,35 +1628,39 @@ def get_icon(resp_int: str,
              repo_dir: str,
              force_icons: bool,
              app_data: AppData,
-             store_name: SupportedStore) -> None:
+             store_name: SupportedStore) -> bool:
     store_patterns: RegexPatterns = getattr(app_data.Regex_Patterns, store_name)
 
     if store_patterns.icon_pattern == "":
-        return
+        return False
 
     if version_code is None or version_code == 0:
         # if a metadata_dir is specified and the corresponding APK file doesn't exist in the repo dir then we can't
         # get the VersionCode needed to store the icons hence return
         print(Fore.YELLOW + "\tWARNING: The corresponding APK file doesn't exist in the repo directory, "
                             "version code can't be retrieved and icons wont be downloaded.", end="\n\n")
-        return
+        return False
 
-    icon_base_url_alt = None
+    icon_base_url = None
+    add_to_url = ""
 
-    icon_base_url = extract_icon_url(response_content=resp_int, icon_pattern=store_patterns.icon_pattern)
+    for pattern_tuple in store_patterns.icon_pattern:
+        if not isinstance(pattern_tuple[0], re.Pattern):
+            if pattern_tuple[0] == "":
+                continue
+            else:
+                raise ValueError(f"Invalid icon pattern: {pattern_tuple[0]}")
+
+        icon_base_url = extract_icon_url(response_content=resp_int, icon_pattern=pattern_tuple[0])
+
+        if icon_base_url is not None:
+            add_to_url = pattern_tuple[1]
+            break
 
     if icon_base_url is None:
-        if store_patterns.icon_pattern_alt == "":
-            print(Fore.YELLOW + "\tCouldn't extract icon URL for {}.".format(new_package), end="\n\n")
-            icon_not_found_packages.append(package + " [" + store_name + "]")
-            return
-        else:
-            icon_base_url_alt = extract_icon_url(response_content=resp_int,
-                                                 icon_pattern=store_patterns.icon_pattern_alt)
-            if icon_base_url_alt is None:
-                print(Fore.YELLOW + "\tCouldn't extract icon URL for {}.".format(new_package), end="\n\n")
-                icon_not_found_packages.append(package + " [" + store_name + "]")
-                return
+        print(Fore.YELLOW + "\tCouldn't extract icon URL for {}.".format(new_package), end="\n\n")
+        icon_not_found_packages.append(package + " [" + store_name + "]")
+        return False
 
     filename = package + "." + str(version_code)
 
@@ -1654,24 +1670,25 @@ def get_icon(resp_int: str,
         except PermissionError:
             print(Fore.RED + "\tERROR: Can't create directory for \"" + dirname +
                   "\". Permission denied, skipping icon download for this package.", end="\n\n")
-            icon_not_found_packages.append(package + " [" + store_name + "]")
-            return
+            return False
 
     if icon_base_url is not None:
         if store_name == "Amazon_Store":
             try:
-                main_icon_path = download_file(url=icon_base_url,
+                main_icon_path = download_file(url=icon_base_url + add_to_url,
                                                filepath_without_extension=os.path.join(tempfile.mkdtemp(), filename))
             except HTTPError as e:
                 print(Fore.RED + f"\tCouldn't download icon. "
                                  f"HTTP error: {e.response.status_code}.")
-                return
+                icon_not_found_packages.append(package + " [" + store_name + "]")
+                return False
             except PermissionError:
                 print(Fore.RED + f"\tCouldn't write icon file for. Permission denied.")
-                return
+                return False
             except ExtensionUnknown as e:
                 print(Fore.RED + f"\tError downloading icon for. {e}.")
-                return
+                icon_not_found_packages.append(package + " [" + store_name + "]")
+                return False
 
             with Image.open(main_icon_path) as orig_img:
                 for dirname in app_data.Icon_Relations.keys():
@@ -1683,48 +1700,38 @@ def get_icon(resp_int: str,
                     resized_img = orig_img.resize((int(app_data.Icon_Relations[dirname]),
                                                    int(app_data.Icon_Relations[dirname])))
                     resized_img.save(icon_path)
+
+            return True
         else:
+            all_success = True
             for dirname in app_data.Icon_Relations.keys():
                 icon_path = os.path.join(repo_dir, dirname, filename)
 
                 if os.path.exists(icon_path) and not force_icons:
                     continue
 
-                url = icon_base_url + app_data.Icon_Relations[dirname]
-
-                if store_name == "Apkpure_Store":
-                    url += "&fakeurl=1"
+                url = icon_base_url + app_data.Icon_Relations[dirname] + add_to_url
 
                 try:
-                    download_file(url=url, filepath_without_extension=icon_path)
+                    download_file(url=url, filepath_without_extension=icon_path, force_png=True)
                 except HTTPError as e:
                     print(Fore.YELLOW + f"\tCouldn't download icon for {dirname}. "
-                                        f"HTTP error: {e.response.status_code}.")
+                                        f"HTTP error: {e.response.status_code}. "
+                                        f"URL: {url}")
+                    all_success = False
                 except PermissionError:
                     print(Fore.RED + f"\tCouldn't write icon file for {dirname}. Permission denied.")
-                    return
+                    return False
                 except ExtensionUnknown as e:
                     print(Fore.YELLOW + f"\tError downloading icon for {dirname}. {e}.")
-    elif icon_base_url_alt is not None:
-        if store_name == "Play_Store":
-            for dirname in app_data.Icon_Relations.keys():
-                icon_path = os.path.join(repo_dir, dirname, filename)
+                    all_success = False
 
-                if os.path.exists(icon_path) and not force_icons:
-                    continue
+            if not all_success:
+                icon_not_found_packages.append(package + " [" + store_name + "]")
 
-                url = (icon_base_url_alt + app_data.Icon_Relations[dirname] + "-h" + app_data.Icon_Relations[dirname])
-
-                try:
-                    download_file(url=url, filepath_without_extension=icon_path)
-                except HTTPError as e:
-                    print(Fore.YELLOW + f"\tCouldn't download icon for {dirname}. "
-                                        f"HTTP error: {e.response.status_code}.")
-                except PermissionError:
-                    print(Fore.RED + f"\tCouldn't write icon file for {dirname}. Permission denied.")
-                    return
-                except ExtensionUnknown as e:
-                    print(Fore.YELLOW + f"\tError downloading icon for {dirname}. {e}.")
+            return all_success
+    else:
+        return False
 
 
 def sanitize_lang(lang: str) -> str:

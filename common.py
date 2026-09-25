@@ -3,10 +3,12 @@ import os
 import re
 import sys
 from http.cookiejar import MozillaCookieJar
+from io import BytesIO
 from time import sleep
 from typing import Any, Literal, TypeGuard
 
 import requests
+from PIL import Image
 from colorama import Fore
 from pydantic import BaseModel, Field, field_validator
 from requests import HTTPError
@@ -27,10 +29,8 @@ class RegexPatterns(BaseModel):
     summary_pattern: Literal[""] | re.Pattern[str]
     summary_pattern_alt: Literal[""] | re.Pattern[str]
     description_pattern: Literal[""] | re.Pattern[str]
-    screenshot_pattern: Literal[""] | re.Pattern[str]
-    screenshot_pattern_alt: Literal[""] | re.Pattern[str]
-    icon_pattern: Literal[""] | re.Pattern[str]
-    icon_pattern_alt: Literal[""] | re.Pattern[str]
+    screenshot_pattern: list[tuple[re.Pattern[str], str]]
+    icon_pattern: list[tuple[re.Pattern[str], str]]
     gitlab_repo_id_pattern: Literal[""] | re.Pattern[str]
     ads_pattern: Literal[""] | re.Pattern[str]
     inapp_purchases_pattern: Literal[""] | re.Pattern[str]
@@ -103,6 +103,13 @@ ALL_DENSITY_NAMES: tuple[AndroidDensityName, ...] = ("ldpi", "mdpi", "tvdpi", "h
                                                      "anydpi", "nodpi", "undefineddpi")
 ALL_DEVICE_TYPES: tuple[AndroidDeviceType, ...] = ("Android", "Android TV", "Android Auto", "Wear OS")
 ALL_SCREEN_TYPES: tuple[AndroidScreenType, ...] = ("small", "normal", "large", "xlarge")
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:157.0) Gecko/20100101 Firefox/157.0",
+    "Accept": "image/avif,image/jxl,image/webp,image/png,image/svg+xml,image/*;q=0.7,*/*;q=0.5",
+    "Accept-Language": "en-US;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br, zstd"
+}
 
 
 class _ApkInfo(BaseModel, validate_assignment=True):
@@ -305,20 +312,36 @@ def get_page_content(url: str,
 
 
 def download_file(url: str,
-                  filepath_without_extension: str) -> str:
-    with requests.get(url, stream=True) as resp_stream:
+                  filepath_without_extension: str,
+                  force_png: bool = False) -> str:
+    with requests.get(url, stream=True, headers=HEADERS) as resp_stream:
         resp_stream.raise_for_status()
 
         extension = mimetypes.guess_extension(resp_stream.headers.get("Content-Type", ""))
 
-        if extension is None:
-            raise ExtensionUnknown(f"Couldn't retrieve the correct extension for '{filepath_without_extension}'.")
+        if extension is None or extension == "":
+            raise ExtensionUnknown(f"Couldn't retrieve the correct extension for '{filepath_without_extension}' from "
+                                   f"'{url}'.")
 
-        with open(filepath_without_extension + extension, "wb") as file_stream:
+        if force_png and extension.lower() != ".png":
+            extension = ".png"
+            filepath = filepath_without_extension + extension
+
+            image_data: bytes = b""
             for chunk in resp_stream.iter_content(chunk_size=8192):
-                file_stream.write(chunk)
+                image_data += chunk
 
-        return filepath_without_extension + extension
+                img = Image.open(BytesIO(image_data))
+
+                img.save(filepath)
+        else:
+            filepath = filepath_without_extension + extension
+
+            with open(filepath, "wb") as file_stream:
+                for chunk in resp_stream.iter_content(chunk_size=8192):
+                    file_stream.write(chunk)
+
+        return filepath
 
 
 def is_none_or_empty(data: dict,

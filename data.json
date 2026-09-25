@@ -358,10 +358,10 @@
       "summary_pattern": "",
       "summary_pattern_alt": "",
       "description_pattern": "",
-      "screenshot_pattern": "",
-      "screenshot_pattern_alt": "",
-      "icon_pattern": "",
-      "icon_pattern_alt": "",
+      "screenshot_pattern": [
+      ],
+      "icon_pattern": [
+      ],
       "gitlab_repo_id_pattern": "",
       "ads_pattern": "",
       "inapp_purchases_pattern": "",
@@ -376,10 +376,22 @@
       "summary_pattern": "<meta\\sitemprop=\"description\"\\scontent=\"(.+?)\">",
       "summary_pattern_alt": "<div\\sclass=\"[^\"]+\"\\sdata-g-id=\"description\"[^>]*>(.+?)(?:<br>|</div>)",
       "description_pattern": "<div\\sclass=\"[^\"]+\"\\sdata-g-id=\"description\"[^>]*>(.+?)</div>",
-      "screenshot_pattern": "<div\\sjscontroller=\"RQJprf\"\\sclass=\"Atcj9b\"><img\\ssrc=\"([^\"]+)=w[0-9]+-h[0-9]+\"",
-      "screenshot_pattern_alt": "",
-      "icon_pattern": "<div\\sclass=\"l8YSdd\"[^>]*><img\\ssrc=\"(.+?=s)[0-9]",
-      "icon_pattern_alt": "<div\\sclass=\"Mqg6jb\\sMhrnjf\"[^>]*><img\\ssrc=\"(.+?=w)",
+      "screenshot_pattern": [
+        [
+          "<div\\sjscontroller=\"RQJprf\"\\sclass=\"Atcj9b\"><img\\ssrc=\"([^\"]+)=w[0-9]+-h[0-9]+\"",
+          "=w9999"
+        ]
+      ],
+      "icon_pattern": [
+        [
+          "<div\\sclass=\"l8YSdd\"[^>]*><img\\ssrc=\"(.+?=s)[0-9]",
+          ""
+        ],
+        [
+          "<div\\sclass=\"Mqg6jb\\sMhrnjf\"[^>]*><img\\ssrc=\"(.+?=w)",
+          ""
+        ]
+      ],
       "gitlab_repo_id_pattern": "<span\\sclass=\"gl-sr-only\"\\sdata-testid=\"project-id-content\"\\sitemprop=\"identifier\">\n*Project\\sID:\\s([0-9]+)\n*</span>",
       "ads_pattern": ">Contains\\sads</span>",
       "inapp_purchases_pattern": ">In-app\\spurchases</span>",
@@ -394,10 +406,22 @@
       "summary_pattern": "<div\\sid=\"mas-product-description\"\\sclass=\"a-section\\sa-spacing-small\\sbucket\">\\s+<h2>.+?</h2>\\s+([^\\.!?:]+.).+\\s*</div>",
       "summary_pattern_alt": "",
       "description_pattern": "<div\\sid=\"mas-product-description\"\\sclass=\"a-section\\sa-spacing-small\\sbucket\">\\s+<h2>.+?</h2>\\s+(.+?)\\s*</div>",
-      "screenshot_pattern": "<li\\s+class=\"a-carousel-card\\s+masrw-screenshot-card\"\\s+style=\"height:[0-9]+px;\\s+\"\\s+role=\"listitem\"\\s+aria-setsize=\"[0-9]+\"\\s+aria-posinset=\"[0-9]+\">\\s+<img\\s+class=\"masrw-screenshot\"\\s+src=\"([^\"]+)\"\\s+alt=\".*\">\\s+</li>",
-      "screenshot_pattern_alt": "",
-      "icon_pattern": "<img\\s+id=\"js-masrw-main-image\"\\s+src=\"([^\"]+)\"\\salt=",
-      "icon_pattern_alt": "",
+      "screenshot_pattern": [
+        [
+          "<li\\s+class=\"a-carousel-card\\s+masrw-screenshot-card\"\\s+style=\"height:[0-9]+px;\\s+\"\\s+role=\"listitem\"\\s+aria-setsize=\"[0-9]+\"\\s+aria-posinset=\"[0-9]+\">\\s+<img\\s+class=\"masrw-screenshot\"\\s+src=\"([^\"]+)\"\\s+alt=\".*\">\\s+</li>",
+          ""
+        ],
+        [
+          "<a\\s+class=\"js-masrw-show-screenshots\"\\s+href=\"#\">\\s+<img\\sheight=\"[^\"]+\"\\ssrc=\"([^\"]+)\\._SL[0-9]+_\\.png\"",
+          ".png"
+        ]
+      ],
+      "icon_pattern": [
+        [
+          "<img\\s+id=\"js-masrw-main-image\"\\s+src=\"([^\"]+)\"\\salt=",
+          ""
+        ]
+      ],
       "gitlab_repo_id_pattern": "<span\\sclass=\"gl-sr-only\"\\sdata-testid=\"project-id-content\"\\sitemprop=\"identifier\">\n*Project\\sID:\\s([0-9]+)\n*</span>",
       "ads_pattern": "<span>Developer Advertising or Marketing</span>",
       "inapp_purchases_pattern": "This app contains in-app purchasing",
@@ -412,10 +436,54 @@
       "summary_pattern": "<div class=\"text-description ton\">\\s+(.+?)\\s*<br>",
       "summary_pattern_alt": "",
       "description_pattern": "(?s)<div class=\"text-description ton\">\\s+(.+?)<div class=\"show-more\" style=\"position: absolute\"></div>",
-      "screenshot_pattern": "(?s)<div class=\"gallery beauty-scroll mb-14\" id=\"gallery-screenshots\">(.+?)</div>",
-      "screenshot_pattern_alt": "\\s+<a\\s+data-href=\"(.+?)=w[0-9]+-h[0-9]+-rw\"\\s+href=\"[^\"]*\"><img\\s+src=\"[^\"]*\"\\s+data-src=\".+?=w[0-9]+-h[0-9]+-rw\"\\s+alt=\"[^\"]*\"\\s+class=\"[^\"]*\"></a>",
-      "icon_pattern": "<div\\s+class=\"avatar\">\\s+<img\\s+src=\"/[^\"]*\"\\s+data-src=\"([^\"]+?=s)[0-9]+-rw\"\\s+class=\"[^\"]*\"\\s+alt=\"[^\"]*\">\\s+</div>",
-      "icon_pattern_alt": "",
+      "screenshot_pattern": [
+        [
+          "<a\\s+data-href=\"(.+?)=w[0-9]+-h[0-9]+-rw\"\\s+href=\"[^\"]*\"><img.+?</a>",
+          "=w9999"
+        ],
+        [
+          "<a\\s+data-href=\"(.+?)\\?h=[0-9]+&amp;fakeurl=1&amp;type[^\"]+\"\\s+href=\"[^\"]*\"><img.+?</a>",
+          "?fakeurl=1"
+        ],
+        [
+          "<a\\s+data-href=\"(.+?)\\?fakeurl=1&amp;type[^\"]+\"\\s+href=\"[^\"]*\"><img.+?</a>",
+          "?fakeurl=1"
+        ],
+        [
+          "<a\\s+data-href=\"(.+?)\\?w=[0-9]+\"\\s+href=\"[^\"]*\"><img.+?</a>",
+          ""
+        ],
+        [
+          "<a\\s+data-href=\"(.+?):[0-9]+\"\\s+href=\"[^\"]*\"><img.+?</a>",
+          ":1200"
+        ]
+      ],
+      "icon_pattern": [
+        [
+          "<div\\s+class=\"avatar\">\\s+<img\\s+src=\"/[^\"]*\"\\s+data-src=\"([^\"]+?=s)[0-9]+-rw\"\\s+class=\"[^\"]*\"\\s+alt=\"[^\"]*\">\\s+</div>",
+          ""
+        ],
+        [
+          "<div\\s+class=\"avatar\">\\s+<img\\s+src=\"(https://play-lh\\.googleusercontent[^\"]+?=s)[0-9]+-rw\"",
+          ""
+        ],
+        [
+          "<div\\s+class=\"avatar\">\\s+<img\\s+src=\"([^\"]+?=s)[0-9]+-rw\"",
+          "&fakeurl=1"
+        ],
+        [
+          "<div\\s+class=\"avatar\">\\s+<img\\s+src=\"(https://play-lh\\.googleusercontent[^\"]+?w=)[0-9][^\"]+\"",
+          ""
+        ],
+        [
+          "<div\\s+class=\"avatar\">\\s+<img\\s+src=\"([^\"]+?w=)[0-9][^\"]+\"",
+          "&fakeurl=1"
+        ],
+        [
+          "<div\\s+class=\"avatar\">\\s+<img\\s+src=\"([^\"]+?:)[0-9]+\"",
+          ""
+        ]
+      ],
       "gitlab_repo_id_pattern": "",
       "ads_pattern": "",
       "inapp_purchases_pattern": "",
@@ -430,10 +498,22 @@
       "summary_pattern": "<h3\\s+class=\"app-short-desc\">(.+?)</h3>",
       "summary_pattern_alt": "",
       "description_pattern": "<div\\s+class=\"description\">(.+?)</div></div><div\\s+class=\"show-more-mask\">",
-      "screenshot_pattern": "<a\\s+class=\"screenshots-item\\s+dt-screenshots-img\"\\s+href=\"(.+?\\?fakeurl=1&amp;type=[A-Za-z.]+)\"",
-      "screenshot_pattern_alt": "",
-      "icon_pattern": "<span\\s+class=\"app-icon\"[^>]*><img\\s+.+?src=\"([^?]+\\?w=)[^\"]+\"",
-      "icon_pattern_alt": "",
+      "screenshot_pattern": [
+        [
+          "<a\\s+class=\"screenshots-item\\s+dt-screenshots-img\"\\s+href=\"(.+?\\?fakeurl=1&amp;type=[A-Za-z.]+)\"",
+          ""
+        ]
+      ],
+      "icon_pattern": [
+        [
+          "<span\\s+class=\"app-icon\"[^>]*><img\\s+.+?src=\"(https://play-lh\\.googleusercontent[^?]+\\?w=)[^\"]+\"",
+          ""
+        ],
+        [
+          "<span\\s+class=\"app-icon\"[^>]*><img\\s+.+?src=\"([^?]+\\?w=)[^\"]+\"",
+          "&fakeurl=1"
+        ]
+      ],
       "gitlab_repo_id_pattern": "",
       "ads_pattern": "",
       "inapp_purchases_pattern": "",
